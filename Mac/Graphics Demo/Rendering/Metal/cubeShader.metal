@@ -8,26 +8,33 @@
 #include <metal_stdlib>
 using namespace metal;
 
-struct CubeVertexPayload {
+struct CubeVertex {
+    float3 position;
+    float3 color;
+};
+
+struct VertexOut {
     float4 position [[position]];
-    half3 color;
+    float3 color;
 };
 
-constant float4 positions[] = {
+VertexOut vertex cubeVertexMain(
+                                 const device CubeVertex* vertices [[buffer(0)]],
+                                 const device float4x4* modelMatrices [[buffer(1)]],
+                                 constant float4x4& vpMatrix [[buffer(2)]],
+                                 uint vertexID [[vertex_id]],
+                                 uint instanceID [[instance_id]]
+                                 ) {
+    CubeVertex targetVertex = vertices[vertexID];
+    float4x4 model = modelMatrices[instanceID];
+    float4 position = model * float4(vertices[vertexID].position, 1.0);
     
-};
-
-constant half3 colors[] = {
-    half3(1.0, 0.0, 0.0)
-};
-
-CubeVertexPayload vertex cubeVertexMain(uint vertexID [[vertex_id]]) {
-    CubeVertexPayload payload;
-    payload.position = positions[vertexID];
-    payload.color = colors[vertexID];
-    return payload;
+    VertexOut out;
+    out.position = vpMatrix * position;
+    out.color = targetVertex.color;
+    return out;
 }
 
-half4 fragment cubeFragmentMain(CubeVertexPayload frag [[stage_in]]) {
-    return half4(frag.color, 1.0);
+float4 fragment cubeFragmentMain(VertexOut frag [[stage_in]]) {
+    return float4(frag.color, 1.0);
 }

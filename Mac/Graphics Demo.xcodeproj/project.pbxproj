@@ -10,9 +10,23 @@
 		DD72BCD82DE1630E003FAC3E /* Graphics Demo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Graphics Demo.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		DD940F752DE92A5E004DC67E /* Exceptions for "Graphics Demo" folder in "Graphics Demo" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Rendering/Metal/triangleShader.metal,
+				Rendering/TriangleRender.swift,
+			);
+			target = DD72BCD72DE1630E003FAC3E /* Graphics Demo */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		DD72BCDA2DE1630E003FAC3E /* Graphics Demo */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DD940F752DE92A5E004DC67E /* Exceptions for "Graphics Demo" folder in "Graphics Demo" target */,
+			);
 			path = "Graphics Demo";
 			sourceTree = "<group>";
 		};

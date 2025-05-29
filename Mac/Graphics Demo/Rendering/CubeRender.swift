@@ -11,11 +11,6 @@ import Foundation
 import simd
 
 extension float4x4 {
-    init(translation t: SIMD3<Float>) {
-        self = matrix_identity_float4x4
-        columns.3 = SIMD4<Float>(t, 1)
-    }
-    
     init(perspectiveFov fovY: Float, aspectRatio: Float, nearZ: Float, farZ: Float) {
         let y = 1 / tan(fovY * 0.5)
         let x = y / aspectRatio
@@ -25,10 +20,6 @@ extension float4x4 {
                   SIMD4<Float>( 0,  y,  0,   0),
                   SIMD4<Float>( 0,  0,  z,  -1),
                   SIMD4<Float>( 0,  0,  z * nearZ,  0))
-    }
-    
-    static func radians_from_degrees(_ degrees: Float) -> Float {
-        return degrees * (.pi / 180)
     }
 }
 
@@ -71,7 +62,7 @@ final class CubeRender : NSObject, MTKViewDelegate, RendererBasis {
         }
         
         self.cubeMesh = cubeMesh;
-        self.cubeInstances = [];
+        self.cubeInstances = [ .init() ];
         
         let bufferSize = MemoryLayout<float4x4>.stride * cubeInstances.count;
         guard let instanceBuffer = device.makeBuffer(length: bufferSize, options: []) else {
@@ -82,14 +73,14 @@ final class CubeRender : NSObject, MTKViewDelegate, RendererBasis {
         
         self.viewMatrix = float4x4(translation: SIMD3<Float>(0, 0, -5)).inverse;
         
-        //let aspect = Float(view.drawableSize.width / view.drawableSize.height)
-        //self.projectionMatrix = float4x4(perspectiveFov: )
+        self.projectionMatrix = matrix_identity_float4x4
         
         super.init()
     }
     
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-        
+        let aspect = Float(size.width / size.height)
+        self.projectionMatrix = float4x4(perspectiveFov: .pi / 3, aspectRatio: aspect, nearZ: 0.1, farZ: 100)
     }
     
     func draw(in view: MTKView) {
@@ -116,13 +107,19 @@ final class CubeRender : NSObject, MTKViewDelegate, RendererBasis {
             return;
         }
         
-        let instanceMatrices = cubeInstances.map { $0.modelMatrix };
-        //memcpy(instanceBuffer.contents(), instanceMatrices, ...);
+        let instanceMatrices = cubeInstances.map { $0.transform.modelMatrix };
+        memcpy(instanceBuffer.contents(), instanceMatrices, MemoryLayout<float4x4>.stride * instanceMatrices.count);
         
         renderEncoder.setRenderPipelineState(pipeline)
+        renderEncoder.setVertexBuffer(cubeMesh.vertexBuffer, offset: 0, index: 0);
+        renderEncoder.setVertexBuffer(instanceBuffer, offset: 0, index: 1)
+        
+        var vpMatrix = projectionMatrix * viewMatrix
+        renderEncoder.setVertexBytes(&vpMatrix, length: MemoryLayout<float4x4>.stride, index: 2);
+        
+        renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: cubeMesh.vertexCount, instanceCount: cubeInstances.count)
         
         renderEncoder.endEncoding()
-        
         commandBuffer.present(drawable)
         commandBuffer.commit()
     }

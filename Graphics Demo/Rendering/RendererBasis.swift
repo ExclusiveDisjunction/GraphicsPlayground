@@ -19,14 +19,18 @@ typealias PlatformViewRepresentable = UIViewRepresentable
 #endif
 
 protocol RendererBasis : NSObject, MTKViewDelegate {
-    init?(_ for: MetalView<Self>);
+    init?(_ device: MTLDevice);
     
     static func buildPipeline(device: MTLDevice) throws -> MTLRenderPipelineState?;
 }
 
 struct MetalView<T> : PlatformViewRepresentable where T: RendererBasis {
     func makeCoordinator() -> T {
-        guard let renderer = T(self) else {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            fatalError("no device could be made");
+        }
+        
+        guard let renderer = T(device) else {
             fatalError("Unable to get renderer");
         }
         

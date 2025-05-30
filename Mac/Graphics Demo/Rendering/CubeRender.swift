@@ -23,19 +23,64 @@ extension float4x4 {
     }
 }
 
+@Observable
+final class CubeInstanceManager {
+    init?(_ device: MTLDevice, data: [CubeInstance] = [.init()] ) {
+        self.data = data;
+        
+        let bufferSize = MemoryLayout<float4x4>.stride * data.count;
+        guard let instanceBuffer = device.makeBuffer(length: bufferSize, options: []) else {
+            print("unable to create instance buffer");
+            return nil;
+        }
+        self.buffer = instanceBuffer;
+        self.device = device;
+    }
+    
+    @ObservationIgnored private var device: MTLDevice;
+    @ObservationIgnored fileprivate var data: [CubeInstance];
+    @ObservationIgnored fileprivate var buffer: MTLBuffer;
+    
+    private func resizeBuffer() {
+        let bufferSize = MemoryLayout<float4x4>.stride * data.count;
+        guard let instanceBuffer = device.makeBuffer(length: bufferSize, options: []) else {
+            fatalError("Unable to resize command buffer for cube renderer")
+        }
+        self.buffer = instanceBuffer;
+    }
+    
+    var instances: [CubeInstance] {
+        data
+    }
+    
+    func addInstance() {
+        data.append(.init());
+        resizeBuffer()
+    }
+    func removeInstance(_ id: CubeInstance.ID) {
+        data.removeAll(where: { $0.id == id } )
+        resizeBuffer()
+    }
+    func removeInstances(_ id: Set<CubeInstance.ID>) {
+        data.removeAll(where: { id.contains($0.id) } )
+        resizeBuffer()
+    }
+}
+
 final class CubeRender : NSObject, MTKViewDelegate, RendererBasis {
     var device: MTLDevice;
     var commandQueue: MTLCommandQueue;
     var pipeline: MTLRenderPipelineState;
     
     var cubeMesh: CubeMesh;
-    var cubeInstances: [CubeInstance];
-    var instanceBuffer: MTLBuffer;
+    var instances: CubeInstanceManager;
     var viewMatrix: float4x4;
     var projectionMatrix: float4x4;
     
     init?(_ device: MTLDevice)  {
         self.device = device;
+    
+        print("cube render init called")
         
         guard let commandQueue = device.makeCommandQueue() else {
             print("no command queue could be made")
@@ -62,17 +107,9 @@ final class CubeRender : NSObject, MTKViewDelegate, RendererBasis {
         }
         
         self.cubeMesh = cubeMesh;
-        self.cubeInstances = [ .init() ];
         
-        let bufferSize = MemoryLayout<float4x4>.stride * cubeInstances.count;
-        guard let instanceBuffer = device.makeBuffer(length: bufferSize, options: []) else {
-            print("unable to create instance buffer");
-            return nil;
-        }
-        self.instanceBuffer = instanceBuffer;
         
         self.viewMatrix = float4x4(translation: SIMD3<Float>(0, 0, -5)).inverse;
-        
         self.projectionMatrix = matrix_identity_float4x4
         
         super.init()
@@ -85,6 +122,7 @@ final class CubeRender : NSObject, MTKViewDelegate, RendererBasis {
     
     func draw(in view: MTKView) {
         guard let drawable = view.currentDrawable else {
+            print("no current drawable");
             return;
         }
         
@@ -107,17 +145,17 @@ final class CubeRender : NSObject, MTKViewDelegate, RendererBasis {
             return;
         }
         
-        let instanceMatrices = cubeInstances.map { $0.transform.modelMatrix };
-        memcpy(instanceBuffer.contents(), instanceMatrices, MemoryLayout<float4x4>.stride * instanceMatrices.count);
+        let instanceMatrices = instances.data.map { $0.transform.modelMatrix };
+        memcpy(instances.buffer.contents(), instanceMatrices, MemoryLayout<float4x4>.stride * instanceMatrices.count);
         
         renderEncoder.setRenderPipelineState(pipeline)
         renderEncoder.setVertexBuffer(cubeMesh.vertexBuffer, offset: 0, index: 0);
-        renderEncoder.setVertexBuffer(instanceBuffer, offset: 0, index: 1)
+        renderEncoder.setVertexBuffer(instances.buffer, offset: 0, index: 1)
         
         var vpMatrix = projectionMatrix * viewMatrix
         renderEncoder.setVertexBytes(&vpMatrix, length: MemoryLayout<float4x4>.stride, index: 2);
         
-        renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: cubeMesh.vertexCount, instanceCount: cubeInstances.count)
+        renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: cubeMesh.vertexCount, instanceCount: instances.data.count)
         
         renderEncoder.endEncoding()
         commandBuffer.present(drawable)

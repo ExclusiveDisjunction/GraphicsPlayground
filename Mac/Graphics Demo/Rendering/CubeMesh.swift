@@ -62,6 +62,7 @@ class CubeMesh  {
     init?(device: MTLDevice) {
         let vertices: [Vertex] = CubeMesh.generateCubeVertices()
         self.vertexCount = vertices.count
+        print("vertex count: \(vertexCount)")
         
         guard let vertexBuffer = device.makeBuffer(bytes: vertices, length: MemoryLayout<Vertex>.stride * vertices.count, options: []) else {
             return nil;

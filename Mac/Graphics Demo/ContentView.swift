@@ -11,12 +11,14 @@ enum RenderChoices : String, CaseIterable, Identifiable{
     case triangle = "2d Triangle"
     case simpleCube = "Simple Cube"
     case manyCube = "Cubes"
+    case gridDemo = "Grid Demo"
     
     var id: String {
         switch self {
             case .triangle: "simpleTriangle"
             case .simpleCube: "simpleCubeRender"
             case .manyCube: "cubeRender"
+            case .gridDemo: "gridDemo"
         }
     }
     
@@ -25,6 +27,7 @@ enum RenderChoices : String, CaseIterable, Identifiable{
             case .triangle: "A quick demo of how the metal framework is built"
             case .simpleCube: "Display a single cube and a camera"
             case .manyCube: "Display many cubes that can each be transformed"
+            case .gridDemo: "A demostration of the grid technology"
         }
     }
 }
@@ -37,7 +40,7 @@ struct ContentView : View {
         self.device = device
         
         do {
-            self.render = try RotatingPyramidRenderer(device)
+            self.render = try HomepageRender(device)
         }
         catch let e {
             print(e.description)
@@ -46,7 +49,7 @@ struct ContentView : View {
     }
     
     @State private var device: MTLDevice;
-    private var render: RotatingPyramidRenderer?;
+    private var render: HomepageRender?;
     
     @Environment(\.openWindow) private var openWindow;
     @Environment(\.dismiss) private var dismiss;
@@ -69,6 +72,7 @@ struct ContentView : View {
                 Image(systemName: "arrow.right")
                 Text(choice.rawValue)
                     .font(.headline)
+                    .underline(true, color: .primary)
                 Spacer()
             }
             HStack {
@@ -122,13 +126,12 @@ struct ContentView : View {
         HStack(spacing: 0) {
             title
                 .background(makeRenderBackground)
-                .frame(width: 400)
             
             options
                 .background(Rectangle().fill(.background.secondary))
                 .frame(width: 200)
             
-        }.frame(minWidth: 600, maxWidth: 600)
+        }.frame(minWidth: 600, maxWidth: 600, minHeight: 400, maxHeight: 450)
     }
 }
 

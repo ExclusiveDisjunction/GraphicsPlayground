@@ -9,8 +9,7 @@
 #include "metalBasic.h"
 using namespace metal;
 
-VertexOut vertex simple3dVertex(
-                                const device VertexIn* vertices [[buffer(0)]],
+VertexOut vertex simple3dVertex(const device VertexIn* vertices [[buffer(0)]],
                                 const device float4x4* modelMatrices [[buffer(1)]],
                                 constant float4x4& perspective [[buffer(2)]],
                                 constant float4x4& camera [[buffer(3)]],

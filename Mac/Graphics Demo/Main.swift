@@ -24,7 +24,9 @@ struct Graphics_DemoApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-        }
+                //.frame(width: 700, height: 500)
+        }.windowResizability(.contentSize)
+            .windowStyle(HiddenTitleBarWindowStyle())
         
         Window("Cubes", id: "cubeRender") {
             CubeRenderHomepage()
@@ -36,6 +38,10 @@ struct Graphics_DemoApp: App {
         
         Window("2d Triangle", id: "simpleTriangle") {
             TriangleRenderHomepage()
+        }
+        
+        Window("Grid Demo", id: "gridDemo") {
+            GridRenderHomepage()
         }
     }
 }

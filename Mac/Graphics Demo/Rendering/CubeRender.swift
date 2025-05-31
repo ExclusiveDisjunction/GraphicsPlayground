@@ -27,26 +27,28 @@ extension float4x4 {
 final class CubeInstanceManager {
     init?(_ device: MTLDevice, data: [CubeInstance] = [.init()] ) {
         self.data = data;
-        
-        let bufferSize = MemoryLayout<float4x4>.stride * data.count;
-        guard let instanceBuffer = device.makeBuffer(length: bufferSize, options: []) else {
-            print("unable to create instance buffer");
-            return nil;
-        }
-        self.buffer = instanceBuffer;
+        self.buffer = Self.createBuffer(device, count: data.count);
         self.device = device;
     }
     
     @ObservationIgnored private var device: MTLDevice;
-    @ObservationIgnored fileprivate var data: [CubeInstance];
-    @ObservationIgnored fileprivate var buffer: MTLBuffer;
+    fileprivate var data: [CubeInstance];
+    @ObservationIgnored fileprivate var buffer: MTLBuffer?;
     
-    private func resizeBuffer() {
-        let bufferSize = MemoryLayout<float4x4>.stride * data.count;
-        guard let instanceBuffer = device.makeBuffer(length: bufferSize, options: []) else {
-            fatalError("Unable to resize command buffer for cube renderer")
+    private static func createBuffer(_ device: MTLDevice, count: Int) -> MTLBuffer? {
+        guard count != 0 else {
+            return nil;
         }
-        self.buffer = instanceBuffer;
+        
+        let bufferSize = MemoryLayout<float4x4>.stride * count;
+        guard let instanceBuffer = device.makeBuffer(length: bufferSize, options: []) else {
+            return nil;
+        }
+        
+        return instanceBuffer;
+    }
+    private func resizeBuffer() {
+        self.buffer = Self.createBuffer(device, count: self.data.count)
     }
     
     var instances: [CubeInstance] {
@@ -67,17 +69,19 @@ final class CubeInstanceManager {
     }
 }
 
-final class CubeRender : NSObject, MTKViewDelegate, RendererBasis {
+final class CubeRender : NSObject, MTKViewDelegate {
     var device: MTLDevice;
     var commandQueue: MTLCommandQueue;
     var pipeline: MTLRenderPipelineState;
+    var depthStencilState: MTLDepthStencilState;
+    var depthTexture: MTLTexture?;
     
     var cubeMesh: CubeMesh;
     var instances: CubeInstanceManager;
     var viewMatrix: float4x4;
     var projectionMatrix: float4x4;
     
-    init?(_ device: MTLDevice)  {
+    init?(_ device: MTLDevice, instances: CubeInstanceManager)  {
         self.device = device;
     
         print("cube render init called")
@@ -108,16 +112,53 @@ final class CubeRender : NSObject, MTKViewDelegate, RendererBasis {
         
         self.cubeMesh = cubeMesh;
         
+        self.viewMatrix = float4x4(translation: SIMD3<Float>(0, 0, -5));
+        self.projectionMatrix = float4x4(perspectiveFov: .pi / 3, aspectRatio: 1, nearZ: 0.1, farZ: 100)
+        self.instances = instances
         
-        self.viewMatrix = float4x4(translation: SIMD3<Float>(0, 0, -5)).inverse;
-        self.projectionMatrix = matrix_identity_float4x4
+        let depthStencilDescriptor = MTLDepthStencilDescriptor()
+        depthStencilDescriptor.depthCompareFunction = .less
+        depthStencilDescriptor.isDepthWriteEnabled = true
+        guard let depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor) else {
+            print("unable to create depth stencil state")
+            return nil;
+        }
+        
+        self.depthStencilState = depthStencilState;
         
         super.init()
     }
     
+    /*
+    private func observeCubeChanges() {
+        withObservationTracking {
+            _ = instances.data
+        } onChange: { [weak self] in
+            DispatchQueue.main.async {
+                guard let mtkView = self?.view as? MTKView else { return }
+                mtkView.setNeedsDisplay(mtkView.bounds);
+            }
+        }
+    }
+     */
+
+    
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         let aspect = Float(size.width / size.height)
         self.projectionMatrix = float4x4(perspectiveFov: .pi / 3, aspectRatio: aspect, nearZ: 0.1, farZ: 100)
+        
+        let width = size.width == 0 ? 1 : size.width;
+        let height = size.height == 0 ? 1 : size.height;
+        
+        let desc = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .depth32Float,
+            width: Int(width),
+            height: Int(height),
+            mipmapped: false
+        )
+        desc.usage = .renderTarget
+        desc.storageMode = .private
+        self.depthTexture = device.makeTexture(descriptor: desc)
     }
     
     func draw(in view: MTKView) {
@@ -140,20 +181,34 @@ final class CubeRender : NSObject, MTKViewDelegate, RendererBasis {
         renderPassDescriptor.colorAttachments[0].loadAction = .clear;
         renderPassDescriptor.colorAttachments[0].storeAction = .store;
         
+        if let depth = depthTexture {
+            renderPassDescriptor.depthAttachment.texture = depth
+            renderPassDescriptor.depthAttachment.loadAction = .clear
+            renderPassDescriptor.depthAttachment.storeAction = .dontCare
+            renderPassDescriptor.depthAttachment.clearDepth = 1.0
+        }
+        
         guard let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else {
             print("unable to create the render encoder")
             return;
         }
         
-        let instanceMatrices = instances.data.map { $0.transform.modelMatrix };
-        memcpy(instances.buffer.contents(), instanceMatrices, MemoryLayout<float4x4>.stride * instanceMatrices.count);
+        // This is required so the cube instances can be copied over.
+        guard let instancesBuffer = instances.buffer else {
+            // Just close out the render so it will clear the screen
+            renderEncoder.endEncoding()
+            return;
+        }
         
+        let instanceMatrices = instances.data.map { $0.transform.modelMatrix };
+        memcpy(instancesBuffer.contents(), instanceMatrices, MemoryLayout<float4x4>.stride * instanceMatrices.count);
+        
+        renderEncoder.setDepthStencilState(depthStencilState)
         renderEncoder.setRenderPipelineState(pipeline)
         renderEncoder.setVertexBuffer(cubeMesh.vertexBuffer, offset: 0, index: 0);
-        renderEncoder.setVertexBuffer(instances.buffer, offset: 0, index: 1)
-        
-        var vpMatrix = projectionMatrix * viewMatrix
-        renderEncoder.setVertexBytes(&vpMatrix, length: MemoryLayout<float4x4>.stride, index: 2);
+        renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: 1)
+        renderEncoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: 2);
+        renderEncoder.setVertexBytes(&viewMatrix, length: MemoryLayout<float4x4>.stride, index: 3); //CHANGE, moved the matrices into the GPU directly
         
         renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: cubeMesh.vertexCount, instanceCount: instances.data.count)
         
@@ -178,6 +233,7 @@ final class CubeRender : NSObject, MTKViewDelegate, RendererBasis {
         pipelineDescriptor.vertexFunction = vertexFunction
         pipelineDescriptor.fragmentFunction = fragmentFunction
         pipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm;
+        pipelineDescriptor.depthAttachmentPixelFormat = .depth32Float
         
         return try device.makeRenderPipelineState(descriptor: pipelineDescriptor)
     }

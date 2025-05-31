@@ -7,38 +7,74 @@
 
 import SwiftUI
 import SwiftData
+import Metal;
 
 struct ContentView: View {
+    init() {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            fatalError()
+        }
+        
+        guard let instances = CubeInstanceManager(device) else {
+            fatalError()
+        }
+        
+        guard let render = CubeRender(device, instances: instances) else {
+            fatalError()
+        }
+        
+        self.device = device
+        self.instances = instances
+        self.render = render
+    }
     @State private var showInspect = false;
     @State private var selected: CubeInstance.ID?;
-    @State private var instances: [CubeInstance] = [];
+    @State private var device: MTLDevice;
+    @Bindable private var instances: CubeInstanceManager;
+    private var render: CubeRender;
     
     var body: some View {
         NavigationSplitView {
             HStack {
-                Button(action: { }) {
+                Button(action: {
+                    withAnimation {
+                        instances.addInstance()
+                    }
+                }) {
                     Image(systemName: "plus")
                 }
-                Button(action: { }) {
+                Button(action: {
+                    if let id = selected {
+                        withAnimation {
+                            instances.removeInstance(id)
+                        }
+                    }
+                }) {
                     Image(systemName: "trash")
                 }
             }
             
-            List(instances, selection: $selected) { cube in
+            List(instances.instances, selection: $selected) { cube in
                 Text("Cube")
             }
         } detail: {
-            MetalView<CubeRender>()
+            MetalView<CubeRender>(render, device: device)
                 .padding()
                 .inspector(isPresented: $showInspect) {
-                    if let id = selected, let cube = instances.first(where: { $0.id == id }) {
-                        
+                    if let id = selected, let cube = instances.instances.first(where: { $0.id == id }) {
+                        CubeModifier(cube)
                     }
                     else {
                         Text("Select an object to modify")
                             .italic()
                     }
+                }.inspectorColumnWidth(ideal: 250)
+        }.toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: { showInspect.toggle() } ) {
+                    Label(showInspect ? "Hide Inspector" : "Show Inspector", systemImage: "sidebar.right")
                 }
+            }
         }
     }
 }

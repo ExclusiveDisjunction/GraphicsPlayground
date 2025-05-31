@@ -18,58 +18,34 @@ import UIKit
 typealias PlatformViewRepresentable = UIViewRepresentable
 #endif
 
-protocol RendererBasis : NSObject, MTKViewDelegate {
-    init?(_ device: MTLDevice);
+struct MetalView<T> : NSViewRepresentable where T: MTKViewDelegate {
+    init(_ coord: T, device: MTLDevice) {
+        self.coord = coord;
+        self.device = device;
+    }
+    private let device: MTLDevice;
+    private let coord: T;
     
-    static func buildPipeline(device: MTLDevice) throws -> MTLRenderPipelineState?;
-}
-
-struct MetalView<T> : PlatformViewRepresentable where T: RendererBasis {
     func makeCoordinator() -> T {
-        guard let device = MTLCreateSystemDefaultDevice() else {
-            fatalError("no device could be made");
-        }
-        
-        guard let renderer = T(device) else {
-            fatalError("Unable to get renderer");
-        }
-        
-        return renderer
+        return coord;
     }
     
-    #if os(macOS)
     func makeNSView(context: Context) -> MTKView {
-        self.createView(context: context)
-    }
-    func updateNSView(_ nsView: MTKView, context: Context) {
-        nsView.delegate = context.coordinator;
-        nsView.drawableSize = nsView.frame.size;
-    }
-    #elseif os(iOS)
-    func makeUIView(context: Context) -> MTKView {
-        self.createView(context: context)
-        
-    }
-    func updateUIView(_ uiView: MTKView, context: Context) {
-        uiView.delegate = context.coordinator;
-        uiView.drawableSize = uiView.frame.size;
-    }
-    #endif
-    
-    private func createView(context: Context) -> MTKView {
         let mtkView = MTKView();
         mtkView.delegate = context.coordinator;
         mtkView.preferredFramesPerSecond = 60;
         mtkView.enableSetNeedsDisplay = false;
         mtkView.isPaused = false;
         
-        if let metalDevice = MTLCreateSystemDefaultDevice() {
-            mtkView.device = metalDevice
-        }
+        mtkView.device = device;
         
         mtkView.framebufferOnly = false;
         mtkView.drawableSize = mtkView.frame.size;
+        mtkView.depthStencilPixelFormat = .depth32Float
         
         return mtkView;
+    }
+    func updateNSView(_ nsView: MTKView, context: Context) {
+        nsView.drawableSize = nsView.frame.size;
     }
 }

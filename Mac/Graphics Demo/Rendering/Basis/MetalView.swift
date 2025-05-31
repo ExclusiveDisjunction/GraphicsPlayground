@@ -10,21 +10,26 @@ import MetalKit;
 import Foundation;
 import SwiftUI
 
-#if os(macOS)
-import AppKit
-typealias PlatformViewRepresentable = NSViewRepresentable
-#else
-import UIKit
-typealias PlatformViewRepresentable = UIViewRepresentable
-#endif
+/*
+ #if os(macOS)
+ import AppKit
+ typealias PlatformViewRepresentable = NSViewRepresentable
+ #else
+ import UIKit
+ typealias PlatformViewRepresentable = UIViewRepresentable
+ #endif
+
+ */
 
 struct MetalView<T> : NSViewRepresentable where T: MTKViewDelegate {
-    init(_ coord: T, device: MTLDevice) {
+    init(_ coord: T, device: MTLDevice, is2d: Bool = false) {
         self.coord = coord;
         self.device = device;
+        self.is2d = is2d;
     }
     private let device: MTLDevice;
     private let coord: T;
+    private let is2d: Bool;
     
     func makeCoordinator() -> T {
         return coord;
@@ -41,7 +46,9 @@ struct MetalView<T> : NSViewRepresentable where T: MTKViewDelegate {
         
         mtkView.framebufferOnly = false;
         mtkView.drawableSize = mtkView.frame.size;
-        mtkView.depthStencilPixelFormat = .depth32Float
+        if !is2d {
+            mtkView.depthStencilPixelFormat = .depth32Float
+        }
         
         return mtkView;
     }

@@ -25,14 +25,14 @@ extension float4x4 {
 
 @Observable
 final class CubeInstanceManager {
-    init?(_ device: MTLDevice, data: [CubeInstance] = [.init()] ) {
+    init?(_ device: MTLDevice, data: [MeshInstance] = [.init()] ) {
         self.data = data;
         self.buffer = Self.createBuffer(device, count: data.count);
         self.device = device;
     }
     
     @ObservationIgnored private var device: MTLDevice;
-    fileprivate var data: [CubeInstance];
+    fileprivate var data: [MeshInstance];
     @ObservationIgnored fileprivate var buffer: MTLBuffer?;
     
     private static func createBuffer(_ device: MTLDevice, count: Int) -> MTLBuffer? {
@@ -51,7 +51,7 @@ final class CubeInstanceManager {
         self.buffer = Self.createBuffer(device, count: self.data.count)
     }
     
-    var instances: [CubeInstance] {
+    var instances: [MeshInstance] {
         data
     }
     
@@ -59,11 +59,11 @@ final class CubeInstanceManager {
         data.append(.init());
         resizeBuffer()
     }
-    func removeInstance(_ id: CubeInstance.ID) {
+    func removeInstance(_ id: MeshInstance.ID) {
         data.removeAll(where: { $0.id == id } )
         resizeBuffer()
     }
-    func removeInstances(_ id: Set<CubeInstance.ID>) {
+    func removeInstances(_ id: Set<MeshInstance.ID>) {
         data.removeAll(where: { id.contains($0.id) } )
         resizeBuffer()
     }
@@ -81,36 +81,31 @@ final class CubeRender : NSObject, MTKViewDelegate {
     var camera: CameraController;
     var projectionMatrix: float4x4;
     
-    init?(_ device: MTLDevice, instances: CubeInstanceManager, camera: CameraController)  {
+    init(_ device: MTLDevice, instances: CubeInstanceManager, camera: CameraController) throws(MissingMetalComponentError) {
         self.device = device;
-    
-        print("cube render init called")
         
         guard let commandQueue = device.makeCommandQueue() else {
-            print("no command queue could be made")
-            return nil
+            throw .commandQueue
         }
-        
         self.commandQueue = commandQueue
         
         do {
-            guard let pipeline = try Self.buildPipeline(device: self.device) else {
-                return nil
-            }
-            
-            self.pipeline = pipeline
+            self.pipeline = try Self.buildPipeline(device: self.device)
+        }
+        catch let e as MissingMetalComponentError {
+            throw e
         }
         catch let e {
-            print("unable to create a pipeline, error \(e)")
-            return nil
+            throw .pipeline(e)
         }
         
-        guard let cubeMesh = CubeMesh(device: device) else {
-            print("unable to create the cube mesh");
-            return nil;
+        do {
+            self.cubeMesh = try CubeMesh(device)
+        }
+        catch let e {
+            throw e
         }
         
-        self.cubeMesh = cubeMesh;
         self.camera = camera
         
         self.projectionMatrix = float4x4(perspectiveFov: .pi / 3, aspectRatio: 1, nearZ: 0.1, farZ: 100)
@@ -120,29 +115,14 @@ final class CubeRender : NSObject, MTKViewDelegate {
         depthStencilDescriptor.depthCompareFunction = .less
         depthStencilDescriptor.isDepthWriteEnabled = true
         guard let depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor) else {
-            print("unable to create depth stencil state")
-            return nil;
+            throw .depthStencil
         }
         
         self.depthStencilState = depthStencilState;
         
         super.init()
     }
-    
-    /*
-    private func observeCubeChanges() {
-        withObservationTracking {
-            _ = instances.data
-        } onChange: { [weak self] in
-            DispatchQueue.main.async {
-                guard let mtkView = self?.view as? MTKView else { return }
-                mtkView.setNeedsDisplay(mtkView.bounds);
-            }
-        }
-    }
-     */
 
-    
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         let aspect = Float(size.width / size.height)
         self.projectionMatrix = float4x4(perspectiveFov: .pi / 3, aspectRatio: aspect, nearZ: 0.1, farZ: 100)
@@ -168,7 +148,7 @@ final class CubeRender : NSObject, MTKViewDelegate {
         }
         
         guard let commandBuffer = commandQueue.makeCommandBuffer() else {
-            print("no command buffer could be madee")
+            print("no command buffer could be made")
             return
         }
         
@@ -197,6 +177,8 @@ final class CubeRender : NSObject, MTKViewDelegate {
         guard let instancesBuffer = instances.buffer else {
             // Just close out the render so it will clear the screen
             renderEncoder.endEncoding()
+            commandBuffer.present(drawable)
+            commandBuffer.commit()
             return;
         }
         
@@ -207,29 +189,30 @@ final class CubeRender : NSObject, MTKViewDelegate {
         
         renderEncoder.setDepthStencilState(depthStencilState)
         renderEncoder.setRenderPipelineState(pipeline)
-        renderEncoder.setVertexBuffer(cubeMesh.vertexBuffer, offset: 0, index: 0);
+        renderEncoder.setVertexBuffer(cubeMesh.buffer, offset: 0, index: 0);
         renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: 1)
         renderEncoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: 2);
         renderEncoder.setVertexBytes(&viewMatrix, length: MemoryLayout<float4x4>.stride, index: 3); //CHANGE, moved the matrices into the GPU directly
         
-        renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: cubeMesh.vertexCount, instanceCount: instances.data.count)
+        renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: cubeMesh.count, instanceCount: instances.data.count)
         
         renderEncoder.endEncoding()
         commandBuffer.present(drawable)
         commandBuffer.commit()
     }
     
-    static func buildPipeline(device: MTLDevice) throws -> MTLRenderPipelineState? {
+    static func buildPipeline(device: MTLDevice) throws -> MTLRenderPipelineState {
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
         guard let library = device.makeDefaultLibrary() else {
-            print("failed to get the default library")
-            return nil
+            throw MissingMetalComponentError.defaultLibrary
         }
         
-        guard let vertexFunction = library.makeFunction(name: "cubeVertexMain"),
-              let fragmentFunction = library.makeFunction(name: "cubeFragmentMain") else {
-            print("unable to create the vertex or fragment functions")
-            return nil
+        guard  let vertexFunction = library.makeFunction(name: "simple3dVertex") else {
+            throw MissingMetalComponentError.libraryFunction("simple3dVertex")
+        }
+        
+        guard let fragmentFunction = library.makeFunction(name: "simple3dFragment") else {
+            throw MissingMetalComponentError.libraryFunction("simple3dFragment")
         }
         
         pipelineDescriptor.vertexFunction = vertexFunction

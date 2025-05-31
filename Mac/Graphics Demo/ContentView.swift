@@ -2,105 +2,133 @@
 //  ContentView.swift
 //  Graphics Demo
 //
-//  Created by Hollan on 5/23/25.
+//  Created by Hollan Sellars on 5/31/25.
 //
 
 import SwiftUI
-import SwiftData
-import Metal;
 
-struct ContentView: View {
-    init() {
-        let camera = CameraController();
-        
-        guard let device = MTLCreateSystemDefaultDevice(),
-              let instances = CubeInstanceManager(device),
-              let render = CubeRender(device, instances: instances, camera: camera) else {
-            fatalError()
+enum RenderChoices : String, CaseIterable, Identifiable{
+    case triangle = "2d Triangle"
+    case simpleCube = "Simple Cube"
+    case manyCube = "Cubes"
+    
+    var id: String {
+        switch self {
+            case .triangle: "simpleTriangle"
+            case .simpleCube: "simpleCubeRender"
+            case .manyCube: "cubeRender"
         }
-        
-        self.camera = camera
-        self.device = device
-        self.instances = instances
-        self.render = render
     }
-    @State private var showInspect = false;
-    @State private var selected: CubeInstance.ID?;
+    
+    var desc: String {
+        switch self {
+            case .triangle: "A quick demo of how the metal framework is built"
+            case .simpleCube: "Display a single cube and a camera"
+            case .manyCube: "Display many cubes that can each be transformed"
+        }
+    }
+}
+
+struct ContentView : View {
+    init() {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            fatalError("no graphics?")
+        }
+        self.device = device
+        
+        do {
+            self.render = try RotatingPyramidRenderer(device)
+        }
+        catch let e {
+            print(e.description)
+            self.render = nil;
+        }
+    }
+    
     @State private var device: MTLDevice;
-    @Bindable private var instances: CubeInstanceManager;
-    @Bindable private var camera: CameraController;
-    private var render: CubeRender;
+    private var render: RotatingPyramidRenderer?;
+    
+    @Environment(\.openWindow) private var openWindow;
+    @Environment(\.dismiss) private var dismiss;
     
     @ViewBuilder
-    private var inspectorContent: some View {
-        TabView {
-            Tab("Camera", systemImage: "rectangle") {
-                ScrollView {
-                    Form {
-                        Float3ModifySection(x: $camera.position.x, y: $camera.position.y, z: $camera.position.z, label: "Position")
-                        
-                        Section(header: Text("Rotation")) {
-                            BetterSlider(to: $camera.rotation.x, label: "α")
-                            BetterSlider(to: $camera.rotation.y, label: "β")
-                            BetterSlider(to: $camera.rotation.z, label: "γ")
-                        }
-                        
-                    }
-                }
+    var makeRenderBackground: some View {
+        if let render = render {
+            MetalView(render, device: device)
+        }
+        else {
+            Rectangle()
+                .fill(.red)
+        }
+    }
+    
+    @ViewBuilder
+    func choiceView(_ choice: RenderChoices) -> some View {
+        VStack {
+            HStack {
+                Image(systemName: "arrow.right")
+                Text(choice.rawValue)
+                    .font(.headline)
+                Spacer()
             }
-            Tab("Object", systemImage: "pencil") {
+            HStack {
+                Text(choice.desc)
+                    .italic()
+                Spacer()
+            }
+        }.padding(.bottom, 2)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                openWindow(id: choice.id)
+                dismiss()
+            }
+    }
+    
+    @ViewBuilder
+    private var title: some View {
+        GeometryReader { geometry in
+            VStack {
                 VStack {
-                    if let id = selected, let cube = instances.instances.first(where: { $0.id == id }) {
-                        ScrollView {
-                            CubeModifier(cube)
-                        }
-                    }
-                    else {
-                        Text("Select an object to modify")
-                            .italic()
-                    }
-                }
+                    Text("Graphics Playground")
+                        .font(.title)
+                    Text("A simple project to demostrate Metal pipelines")
+                        .font(.subheadline)
+                }.padding()
+                    .background(RoundedRectangle(cornerSize: CGSize(width: 5, height: 5))
+                        .fill(.background.secondary.opacity(0.4))
+                    )
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        }.padding()
+    }
+    
+    @ViewBuilder
+    private var options: some View {
+        ScrollView {
+            VStack {
+                Text("Demos")
+                    .font(.title2)
+                Divider().padding(.bottom, 3)
+                ForEach(RenderChoices.allCases, id: \.id) { choice in
+                    choiceView(choice)
+                }
+            }.padding()
         }
     }
     
     var body: some View {
-        NavigationSplitView {
-            HStack {
-                Button(action: {
-                    withAnimation {
-                        instances.addInstance()
-                    }
-                }) {
-                    Image(systemName: "plus")
-                }
-                Button(action: {
-                    if let id = selected {
-                        withAnimation {
-                            instances.removeInstance(id)
-                        }
-                    }
-                }) {
-                    Image(systemName: "trash")
-                }
-            }
+        HStack(spacing: 0) {
+            title
+                .background(makeRenderBackground)
+                .frame(width: 400)
             
-            List(instances.instances, selection: $selected) { cube in
-                Text("Cube")
-            }
-        } detail: {
-            MetalView<CubeRender>(render, device: device)
-                .padding()
-                .inspector(isPresented: $showInspect) {
-                    inspectorContent
-                }.inspectorColumnWidth(ideal: 250)
-        }.toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button(action: { showInspect.toggle() } ) {
-                    Label(showInspect ? "Hide Inspector" : "Show Inspector", systemImage: "sidebar.right")
-                }
-            }
-        }
+            options
+                .background(Rectangle().fill(.background.secondary))
+                .frame(width: 200)
+            
+        }.frame(minWidth: 600, maxWidth: 600)
     }
 }
 

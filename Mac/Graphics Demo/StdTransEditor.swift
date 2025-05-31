@@ -39,34 +39,29 @@ struct Float3ModifySection : View {
     
 }
 
-struct CubeModifier : View {
+struct StdTransEditor : View {
     @Bindable private var over: StandardTransformations;
     
-    init(_ over: CubeInstance) {
-        self.over = over.transform
+    init(_ over: StandardTransformations) {
+        self.over = over
     }
     
     var body: some View {
-        VStack {
-            Text("Cube")
-                .font(.title3)
+        Form {
+            Float3ModifySection(x: $over.position.x, y: $over.position.y, z: $over.position.z, label: "Position")
             
-            Form {
-                Float3ModifySection(x: $over.position.x, y: $over.position.y, z: $over.position.z, label: "Position")
-                
-                Section(header: Text("Rotation")) {
-                    BetterSlider(to: $over.rotation.x, label: "α")
-                    BetterSlider(to: $over.rotation.y, label: "β")
-                    BetterSlider(to: $over.rotation.z, label: "γ")
-                }
-                
-                Float3ModifySection(x: $over.scale.x, y: $over.scale.y, z: $over.scale.z, label: "Scale")
+            Section(header: Text("Rotation")) {
+                BetterSlider(to: $over.rotation.x, label: "α")
+                BetterSlider(to: $over.rotation.y, label: "β")
+                BetterSlider(to: $over.rotation.z, label: "γ")
             }
+            
+            Float3ModifySection(x: $over.scale.x, y: $over.scale.y, z: $over.scale.z, label: "Scale")
         }.padding()
     }
 }
 
 #Preview {
-    let modify = CubeInstance();
-    CubeModifier(modify)
+    let modify = StandardTransformations();
+    StdTransEditor(modify)
 }

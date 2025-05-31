@@ -25,6 +25,17 @@ struct Graphics_DemoApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(sharedModelContainer)
+        
+        Window("Cubes", id: "cubeRender") {
+            CubeRenderHomepage()
+        }
+        
+        Window("Simple Cube", id: "simpleCubeRender") {
+            SimpleCubeRenderHomepage()
+        }
+        
+        Window("2d Triangle", id: "simpleTriangle") {
+            TriangleRenderHomepage()
+        }
     }
 }

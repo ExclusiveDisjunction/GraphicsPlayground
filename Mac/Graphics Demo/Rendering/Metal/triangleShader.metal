@@ -26,7 +26,7 @@ constant half3 colors[] = {
 };
 
 /// Creates the layout and outlines the colors of the points.
-VertexPayload vertex vertexMain(uint vertexID [[vertex_id]]) {
+VertexPayload vertex triangleVertexMain(uint vertexID [[vertex_id]]) {
     VertexPayload payload;
     payload.position = positions[vertexID];
     payload.color = colors[vertexID];
@@ -34,6 +34,6 @@ VertexPayload vertex vertexMain(uint vertexID [[vertex_id]]) {
 }
 
 /// Separates the colors into distinct values for the GPU.
-half4 fragment fragmentMain(VertexPayload frag [[stage_in]]) {
+half4 fragment triangleFragmentMain(VertexPayload frag [[stage_in]]) {
     return half4(frag.color, 1.0);
 }

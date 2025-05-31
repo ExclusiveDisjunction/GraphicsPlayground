@@ -9,13 +9,34 @@ import SwiftUI
 
 struct BetterSlider : View {
     @Binding var to: Float;
+    /*
     let min: Float;
     let max: Float;
+     */
     let label: String;
     
     var body: some View {
         TextField(label, value: $to, format: .number.precision(.fractionLength(2)))
     }
+}
+
+struct Float3ModifySection : View {
+    @Binding var x: Float;
+    @Binding var y: Float;
+    @Binding var z: Float;
+    let label: String;
+    let xL: String = "X";
+    let yL: String = "Y";
+    let zL: String = "Z";
+    
+    var body: some View {
+        Section(header: Text(label)) {
+            BetterSlider(to: $x, label: xL)
+            BetterSlider(to: $y, label: yL)
+            BetterSlider(to: $z, label: xL)
+        }
+    }
+    
 }
 
 struct CubeModifier : View {
@@ -31,23 +52,15 @@ struct CubeModifier : View {
                 .font(.title3)
             
             Form {
-                Section(header: Text("Position")) {
-                    BetterSlider(to: $over.position.x, min: -10.0, max: 10.0, label: "X")
-                    BetterSlider(to: $over.position.y, min: -10.0, max: 10.0, label: "Y")
-                    BetterSlider(to: $over.position.z, min: -10.0, max: 10.0, label: "Z")
-                }
+                Float3ModifySection(x: $over.position.x, y: $over.position.y, z: $over.position.z, label: "Position")
                 
                 Section(header: Text("Rotation")) {
-                    BetterSlider(to: $over.rotation.x, min: 0, max: 2.0 * .pi, label: "α")
-                    BetterSlider(to: $over.rotation.y, min: 0, max: 2.0 * .pi, label: "β")
-                    BetterSlider(to: $over.rotation.z, min: 0, max: 2.0 * .pi, label: "γ")
+                    BetterSlider(to: $over.rotation.x, label: "α")
+                    BetterSlider(to: $over.rotation.y, label: "β")
+                    BetterSlider(to: $over.rotation.z, label: "γ")
                 }
                 
-                Section(header: Text("Scale")) {
-                    BetterSlider(to: $over.scale.x, min: 0, max: 10.0, label: "X")
-                    BetterSlider(to: $over.scale.y, min: 0, max: 10.0, label: "Y")
-                    BetterSlider(to: $over.scale.z, min: 0, max: 10.0, label: "Z")
-                }
+                Float3ModifySection(x: $over.scale.x, y: $over.scale.y, z: $over.scale.z, label: "Scale")
             }
         }.padding()
     }

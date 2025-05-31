@@ -78,10 +78,10 @@ final class CubeRender : NSObject, MTKViewDelegate {
     
     var cubeMesh: CubeMesh;
     var instances: CubeInstanceManager;
-    var viewMatrix: float4x4;
+    var camera: CameraController;
     var projectionMatrix: float4x4;
     
-    init?(_ device: MTLDevice, instances: CubeInstanceManager)  {
+    init?(_ device: MTLDevice, instances: CubeInstanceManager, camera: CameraController)  {
         self.device = device;
     
         print("cube render init called")
@@ -111,8 +111,8 @@ final class CubeRender : NSObject, MTKViewDelegate {
         }
         
         self.cubeMesh = cubeMesh;
+        self.camera = camera
         
-        self.viewMatrix = float4x4(translation: SIMD3<Float>(0, 0, -5));
         self.projectionMatrix = float4x4(perspectiveFov: .pi / 3, aspectRatio: 1, nearZ: 0.1, farZ: 100)
         self.instances = instances
         
@@ -202,6 +202,8 @@ final class CubeRender : NSObject, MTKViewDelegate {
         
         let instanceMatrices = instances.data.map { $0.transform.modelMatrix };
         memcpy(instancesBuffer.contents(), instanceMatrices, MemoryLayout<float4x4>.stride * instanceMatrices.count);
+        
+        var viewMatrix = camera.cameraMatrix;
         
         renderEncoder.setDepthStencilState(depthStencilState)
         renderEncoder.setRenderPipelineState(pipeline)

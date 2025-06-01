@@ -39,16 +39,7 @@ struct SimpleCubeRenderHomepage : View {
         TabView {
             Tab("Camera", systemImage: "rectangle") {
                 ScrollView {
-                    Form {
-                        Float3ModifySection(x: $camera.position.x, y: $camera.position.y, z: $camera.position.z, label: "Position")
-                        
-                        Section(header: Text("Rotation")) {
-                            BetterSlider(to: $camera.rotation.x, label: "α")
-                            BetterSlider(to: $camera.rotation.y, label: "β")
-                            BetterSlider(to: $camera.rotation.z, label: "γ")
-                        }
-                        
-                    }.padding()
+                    CameraEdit(control: camera)
                 }
             }
             Tab("Object", systemImage: "pencil") {

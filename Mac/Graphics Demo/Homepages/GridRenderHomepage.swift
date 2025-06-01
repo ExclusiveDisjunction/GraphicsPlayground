@@ -33,7 +33,7 @@ struct GridRenderHomepage : View {
     private var render: GridRenderer;
     
     var body: some View {
-        MetalView(render, device: device)
+        CameraMetalView(render, device: device, camera: camera)
             .padding()
             .inspector(isPresented: $showInspect) {
                 ScrollView {

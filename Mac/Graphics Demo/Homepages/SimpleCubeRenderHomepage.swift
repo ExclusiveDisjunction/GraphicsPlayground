@@ -51,7 +51,7 @@ struct SimpleCubeRenderHomepage : View {
     }
     
     var body: some View {
-        MetalView(render, device: device)
+        CameraMetalView(render, device: device, camera: camera)
             .inspector(isPresented: $showInspect) {
                 inspectorContent
             }

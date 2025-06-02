@@ -53,5 +53,6 @@ struct CameraMetalView<T> : View where T: MTKViewDelegate {
                 
                 return .handled
             }
+            
     }
 }

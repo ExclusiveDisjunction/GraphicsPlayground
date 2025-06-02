@@ -1,72 +1,53 @@
 //
-//  CubeSceneRenderer.swift
+//  InfiniteGridRenderer.swift
 //  Graphics Demo
 //
-//  Created by Hollan on 5/31/25.
+//  Created by Hollan on 6/1/25.
 //
 
-import Metal
 import MetalKit
+import Metal
+import simd
 
-struct AxisMesh : MeshBasis {
-    init(_ device: any MTLDevice, dim: Int) throws(MissingMetalComponentError) {
-        let vertices = Self.generateVertices(dim);
+struct XZAxisPlaneMesh : MeshBasis {
+    static var name: String { "XZAxisPlaneMesh" }
+    var buffer: MTLBuffer;
+    var count: Int;
+    
+    init(_ device: MTLDevice, size: Int = 1000) throws(MissingMetalComponentError) {
+        let points = Self.generateVertices(size);
         
-        guard let buffer = device.makeBuffer(bytes: vertices, length: MemoryLayout<Vertex>.stride * vertices.count) else {
+        guard let buffer = device.makeBuffer(bytes: points, length: MemoryLayout<SIMD3<Float>>.stride * points.count) else {
             throw .buffer
         }
         
         self.buffer = buffer
-        self.count = vertices.count
+        self.count = points.count
     }
     
-    static func generateVertices(_ dim: Int) -> [Vertex] {
-        let r = SIMD3<Float>(1.0, 0.0, 0.0)
-        let g = SIMD3<Float>(0.0, 1.0, 0.0)
-        let b = SIMD3<Float>(0.0, 0.0, 1.0)
-        let k = SIMD3<Float>(0.7, 0.7, 0.7);
+    static func generateVertices(_ size: Int) -> [SIMD3<Float>] {
+        let size = Float(size);
         
-        var result: [Vertex] = [
-            .init(position: .init(Float(-dim), 0, 0), color: r),
-            .init(position: .init(Float(dim), 0, 0), color: r),
+        return [
+            .init(-size, 0, -size),
+            .init( size, 0, -size),
+            .init(-size, 0,  size),
             
-            .init(position: .init(0, Float(-dim), 0), color: g),
-            .init(position: .init(0, Float(dim), 0), color: g),
-            
-            .init(position: .init(0, 0, Float(-dim)), color: b),
-            .init(position: .init(0, 0, Float(dim)), color: b)
-        ]
-        
-        
-        for i in (-dim)...dim {
-            if i == 0 {
-                continue;
-            }
-            
-            result.append(.init(position: .init(Float(i), 0, Float(-dim)), color: k))
-            result.append(.init(position: .init(Float(i), 0, Float(dim)), color: k))
-            
-            result.append(.init(position: .init(Float(-dim), 0, Float(i)), color: k))
-            result.append(.init(position: .init(Float(dim), 0, Float(i)), color: k))
-        }
-        
-        return result;
+            .init( size, 0, -size),
+            .init( size, 0,  size),
+            .init(-size, 0,  size)
+        ];
     }
-    
-    static var name: String { "Axis" }
-    var buffer: MTLBuffer
-    var count: Int
 }
 
-final class GridRenderer : NSObject, MTKViewDelegate {
+final class InfiniteGridRenderer : NSObject, MTKViewDelegate {
     var device: MTLDevice;
     var commandQueue: MTLCommandQueue;
     var pipeline: MTLRenderPipelineState;
-    //var gridCompute: MTLComputePipelineState;
     var depthStencilState: MTLDepthStencilState;
     var depthTexture: MTLTexture?;
     
-    let axis: AxisMesh;
+    let axis: XZAxisPlaneMesh;
     var camera: CameraController;
     var projectionMatrix: float4x4;
     
@@ -80,7 +61,7 @@ final class GridRenderer : NSObject, MTKViewDelegate {
         
         do {
             self.pipeline = try Self.buildPipeline(device: self.device)
-            self.axis = try AxisMesh(device, dim: 10)
+            self.axis = try XZAxisPlaneMesh(device, size: 1000)
         }
         catch let e as MissingMetalComponentError {
             throw e
@@ -167,12 +148,12 @@ final class GridRenderer : NSObject, MTKViewDelegate {
             throw MissingMetalComponentError.defaultLibrary
         }
         
-        guard  let vertexFunction = library.makeFunction(name: "axisVertex") else {
-            throw MissingMetalComponentError.libraryFunction("axisVertex")
+        guard  let vertexFunction = library.makeFunction(name: "infiniteAxisVertex") else {
+            throw MissingMetalComponentError.libraryFunction("infiniteAxisVertex")
         }
         
-        guard let fragmentFunction = library.makeFunction(name: "axisFragment") else {
-            throw MissingMetalComponentError.libraryFunction("axisFragment")
+        guard let fragmentFunction = library.makeFunction(name: "infiniteAxisFragment") else {
+            throw MissingMetalComponentError.libraryFunction("infiniteAxisFragment")
         }
         
         pipelineDescriptor.vertexFunction = vertexFunction
@@ -182,10 +163,4 @@ final class GridRenderer : NSObject, MTKViewDelegate {
         
         return try device.makeRenderPipelineState(descriptor: pipelineDescriptor)
     }
-    
-    /*
-     static func buildComputePipeline(device: MTLDevice) throws -> MTLComputePipelineState {
-         
-     }
-     */
 }

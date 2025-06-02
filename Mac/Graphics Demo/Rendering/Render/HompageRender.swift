@@ -9,12 +9,8 @@ import SwiftUI
 import Metal
 import MetalKit
 
-final class HomepageRender : NSObject, MTKViewDelegate {
-    var device: MTLDevice;
-    var commandQueue: MTLCommandQueue;
+final class HomepageRender : RendererBasis3d, MTKViewDelegate {
     var pipeline: MTLRenderPipelineState;
-    var depthStencilState: MTLDepthStencilState;
-    var depthTexture: MTLTexture?;
     
     var frame: Int32 = 0;
     var mesh: PyramidMesh;
@@ -22,9 +18,8 @@ final class HomepageRender : NSObject, MTKViewDelegate {
     var p2Loc: float4x4
     var buffer: MTLBuffer;
     var camera: float4x4
-    var projection: float4x4;
     
-    init(_ device: MTLDevice) throws(MissingMetalComponentError) {
+    override init(_ device: MTLDevice) throws(MissingMetalComponentError) {
         self.device = device;
         
         guard let commandQueue = device.makeCommandQueue() else {

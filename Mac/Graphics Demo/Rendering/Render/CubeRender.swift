@@ -69,28 +69,17 @@ final class CubeInstanceManager {
     }
 }
 
-final class CubeRender : NSObject, MTKViewDelegate {
-    var device: MTLDevice;
-    var commandQueue: MTLCommandQueue;
+final class CubeRender : RendererBasis3d, MTKViewDelegate {
     var pipeline: MTLRenderPipelineState;
-    var depthStencilState: MTLDepthStencilState;
-    var depthTexture: MTLTexture?;
     
     var cubeMesh: CubeMesh;
     var instances: CubeInstanceManager;
     var camera: CameraController;
-    var projectionMatrix: float4x4;
     
     init(_ device: MTLDevice, instances: CubeInstanceManager, camera: CameraController) throws(MissingMetalComponentError) {
-        self.device = device;
-        
-        guard let commandQueue = device.makeCommandQueue() else {
-            throw .commandQueue
-        }
-        self.commandQueue = commandQueue
-        
         do {
-            self.pipeline = try Self.buildPipeline(device: self.device)
+            self.pipeline = try Self.buildPipeline(device: device)
+            self.cubeMesh = try CubeMesh(device)
         }
         catch let e as MissingMetalComponentError {
             throw e
@@ -99,127 +88,51 @@ final class CubeRender : NSObject, MTKViewDelegate {
             throw .pipeline(e)
         }
         
-        do {
-            self.cubeMesh = try CubeMesh(device)
-        }
-        catch let e {
-            throw e
-        }
-        
         self.camera = camera
-        
-        self.projectionMatrix = float4x4(perspectiveFov: .pi / 3, aspectRatio: 1, nearZ: 0.1, farZ: 100)
         self.instances = instances
         
-        let depthStencilDescriptor = MTLDepthStencilDescriptor()
-        depthStencilDescriptor.depthCompareFunction = .less
-        depthStencilDescriptor.isDepthWriteEnabled = true
-        guard let depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor) else {
-            throw .depthStencil
-        }
-        
-        self.depthStencilState = depthStencilState;
-        
-        super.init()
+        try super.init(device)
     }
 
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-        let aspect = Float(size.width / size.height)
-        self.projectionMatrix = float4x4(perspectiveFov: .pi / 3, aspectRatio: aspect, nearZ: 0.1, farZ: 100)
-        
-        let width = size.width == 0 ? 1 : size.width;
-        let height = size.height == 0 ? 1 : size.height;
-        
-        let desc = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .depth32Float,
-            width: Int(width),
-            height: Int(height),
-            mipmapped: false
-        )
-        desc.usage = .renderTarget
-        desc.storageMode = .private
-        self.depthTexture = device.makeTexture(descriptor: desc)
+        self.updateMTKView(view, size: size)
     }
     
     func draw(in view: MTKView) {
-        guard let drawable = view.currentDrawable else {
-            print("no current drawable");
+        guard let context = FrameDrawContext(view: view, queue: commandQueue) else {
             return;
         }
         
-        guard let commandBuffer = commandQueue.makeCommandBuffer() else {
-            print("no command buffer could be made")
-            return
-        }
+        context.setColorAttachments()
+        context.setDepthTexture(depthTexture)
         
-        guard let renderPassDescriptor = view.currentRenderPassDescriptor else {
-            print("no render pass descriptor could be found");
-            return;
-        }
-        
-        renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.3, 0.3, 0.3, 1);
-        renderPassDescriptor.colorAttachments[0].loadAction = .clear;
-        renderPassDescriptor.colorAttachments[0].storeAction = .store;
-        
-        if let depth = depthTexture {
-            renderPassDescriptor.depthAttachment.texture = depth
-            renderPassDescriptor.depthAttachment.loadAction = .clear
-            renderPassDescriptor.depthAttachment.storeAction = .dontCare
-            renderPassDescriptor.depthAttachment.clearDepth = 1.0
-        }
-        
-        guard let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else {
+        guard let renderEncoder = context.makeEncoder() else {
             print("unable to create the render encoder")
             return;
         }
         
         // This is required so the cube instances can be copied over.
-        guard let instancesBuffer = instances.buffer else {
-            // Just close out the render so it will clear the screen
-            renderEncoder.endEncoding()
-            commandBuffer.present(drawable)
-            commandBuffer.commit()
-            return;
+        if let instancesBuffer = instances.buffer {
+            let instanceMatrices = instances.data.map { $0.transform.modelMatrix };
+            memcpy(instancesBuffer.contents(), instanceMatrices, MemoryLayout<float4x4>.stride * instanceMatrices.count);
+            
+            var viewMatrix = camera.cameraMatrix;
+            
+            renderEncoder.setDepthStencilState(depthStencilState)
+            renderEncoder.setRenderPipelineState(pipeline)
+            renderEncoder.setVertexBuffer(cubeMesh.buffer, offset: 0, index: 0);
+            renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: 1)
+            renderEncoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: 2);
+            renderEncoder.setVertexBytes(&viewMatrix, length: MemoryLayout<float4x4>.stride, index: 3); //CHANGE, moved the matrices into the GPU directly
+            
+            renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: cubeMesh.count, instanceCount: instances.data.count)
         }
         
-        let instanceMatrices = instances.data.map { $0.transform.modelMatrix };
-        memcpy(instancesBuffer.contents(), instanceMatrices, MemoryLayout<float4x4>.stride * instanceMatrices.count);
-        
-        var viewMatrix = camera.cameraMatrix;
-        
-        renderEncoder.setDepthStencilState(depthStencilState)
-        renderEncoder.setRenderPipelineState(pipeline)
-        renderEncoder.setVertexBuffer(cubeMesh.buffer, offset: 0, index: 0);
-        renderEncoder.setVertexBuffer(instancesBuffer, offset: 0, index: 1)
-        renderEncoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: 2);
-        renderEncoder.setVertexBytes(&viewMatrix, length: MemoryLayout<float4x4>.stride, index: 3); //CHANGE, moved the matrices into the GPU directly
-        
-        renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: cubeMesh.count, instanceCount: instances.data.count)
-        
         renderEncoder.endEncoding()
-        commandBuffer.present(drawable)
-        commandBuffer.commit()
+        context.commit()
     }
     
     static func buildPipeline(device: MTLDevice) throws -> MTLRenderPipelineState {
-        let pipelineDescriptor = MTLRenderPipelineDescriptor()
-        guard let library = device.makeDefaultLibrary() else {
-            throw MissingMetalComponentError.defaultLibrary
-        }
-        
-        guard  let vertexFunction = library.makeFunction(name: "simple3dVertex") else {
-            throw MissingMetalComponentError.libraryFunction("simple3dVertex")
-        }
-        
-        guard let fragmentFunction = library.makeFunction(name: "simple3dFragment") else {
-            throw MissingMetalComponentError.libraryFunction("simple3dFragment")
-        }
-        
-        pipelineDescriptor.vertexFunction = vertexFunction
-        pipelineDescriptor.fragmentFunction = fragmentFunction
-        pipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm;
-        pipelineDescriptor.depthAttachmentPixelFormat = .depth32Float
-        
-        return try device.makeRenderPipelineState(descriptor: pipelineDescriptor)
+        return try self.makeSimplePipeline(device, vertex: "simple3dVertex", fragment: "simple3dFragment")
     }
 }

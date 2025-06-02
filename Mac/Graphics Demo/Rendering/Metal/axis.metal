@@ -21,8 +21,8 @@ constant float axisThickness = 0.01;
 AxisVertexOut vertex infiniteAxisVertex(const device float3* vertices [[buffer(0)]],
                                     uint vid [[vertex_id]],
                                     constant float4x4& modelMatrix [[buffer(1)]],
-                                    constant float4x4& camera [[buffer(2)]],
-                                    constant float4x4& proj [[buffer(3)]]
+                                    constant float4x4& proj [[buffer(2)]],
+                                    constant float4x4& camera [[buffer(3)]]
                                     ) {
     AxisVertexOut out;
     float4 worldPos = (modelMatrix * float4(vertices[vid], 1.0));
@@ -33,9 +33,9 @@ AxisVertexOut vertex infiniteAxisVertex(const device float3* vertices [[buffer(0
 }
 
 float4 fragment infiniteAxisFragment(AxisVertexOut in [[stage_in]]) {
-    float2 gridCoord = in.worldPosition.xy;
+    float2 gridCoord = in.position.xz;
     
-    float2 minor = abs(fract(gridCoord / axisMajorSpacing) - 0.5);
+    float2 minor = abs(fract(gridCoord / axisMinorSpacing) - 0.5);
     float2 major = abs(fract(gridCoord / axisMajorSpacing) - 0.5);
     
     float minorLine = step(min(minor.x, minor.y), axisThickness);

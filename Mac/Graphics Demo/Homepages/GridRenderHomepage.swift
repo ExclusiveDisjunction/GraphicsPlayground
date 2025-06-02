@@ -20,7 +20,7 @@ struct GridRenderHomepage : View {
         self.camera = camera
         self.device = device;
         do {
-            self.render = try GridRenderer(device, camera: camera)
+            self.render = try InfiniteGridRenderer(device, camera: camera)
         }
         catch let e {
             fatalError(e.description)
@@ -30,7 +30,7 @@ struct GridRenderHomepage : View {
     @State private var showInspect: Bool = false;
     @State private var device: MTLDevice;
     @Bindable private var camera: CameraController;
-    private var render: GridRenderer;
+    private var render: InfiniteGridRenderer;
     
     var body: some View {
         CameraMetalView(render, device: device, camera: camera)

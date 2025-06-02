@@ -55,15 +55,29 @@ struct Vertex {
     var color: SIMD3<Float>
 }
 
+/// A protocol representing an object to display.
+/// A mesh is like a template, it can be used over and over. It has some internal dimensions, but this gets transformed & represented on the screen.
 protocol MeshBasis {
+    /// A unique name used to identify the specific mesh.
     static var name: String { get }
+    /// The buffer for the meshes' vertices.
     var buffer: MTLBuffer { get }
+    /// The number of items stored in the buffer.
     var count: Int { get }
 }
+/// Represents a mesh that has vertices, and uses indexes to hold the valuesl
+protocol IndexBasedMesh : MeshBasis {
+    var indexBuffer: MTLBuffer { get }
+    var indexCount: Int { get }
+}
+
 protocol PrimativeMesh : MeshBasis {
     init(_ device: MTLDevice) throws(MissingMetalComponentError);
     
     static func generateVertices() -> [Vertex]
+}
+protocol IndexBasedPrimativeMesh : PrimativeMesh, IndexBasedMesh {
+    
 }
 
 @Observable

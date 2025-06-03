@@ -40,42 +40,25 @@ enum MissingMetalComponentError : Error {
     }
 }
 
-final class SimpleCubeRenderer : NSObject, MTKViewDelegate {
-    var device: MTLDevice;
-    var commandQueue: MTLCommandQueue;
+final class SimpleCubeRenderer : RendererBasis3d, MTKViewDelegate {
     var pipeline: MTLRenderPipelineState;
-    var depthStencilState: MTLDepthStencilState;
-    var depthTexture: MTLTexture?;
     
     var cubeMesh: CubeMesh;
     var transform: StandardTransformations;
+    /// The buffer for the cube's model matrix.
     var cubeBuffer: MTLBuffer;
     var camera: CameraController;
-    var projectionMatrix: float4x4;
     
     init(_ device: MTLDevice, transform: StandardTransformations, camera: CameraController) throws(MissingMetalComponentError) {
-        self.device = device;
-        
-        guard let commandQueue = device.makeCommandQueue() else {
-            throw .commandQueue
-        }
-        self.commandQueue = commandQueue
-        
         do {
             self.pipeline = try Self.buildPipeline(device: device)
+            self.cubeMesh = try CubeMesh(device)
         }
         catch let e as MissingMetalComponentError {
             throw e
         }
         catch let e {
             throw .pipeline(e)
-        }
-        
-        do {
-            self.cubeMesh = try CubeMesh(device)
-        }
-        catch let e {
-            throw e;
         }
         
         guard let buffer = device.makeBuffer(length: MemoryLayout<float4x4>.stride) else {
@@ -85,59 +68,23 @@ final class SimpleCubeRenderer : NSObject, MTKViewDelegate {
         
         self.camera = camera
         self.transform = transform
-        
-        self.projectionMatrix = Self.makePerspective(aspectRatio: 1)
-        
-        let depthStencilDescriptor = MTLDepthStencilDescriptor()
-        depthStencilDescriptor.depthCompareFunction = .less
-        depthStencilDescriptor.isDepthWriteEnabled = true
-        guard let depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor) else {
-            throw .depthStencil
-        }
-        self.depthStencilState = depthStencilState
-        
-        super.init()
+    
+        try super.init(device)
     }
     
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-        let aspect = Float(size.width / size.height)
-        self.projectionMatrix = Self.makePerspective(aspectRatio: aspect)
-        
-        let width = size.width == 0 ? 1 : size.width;
-        let height = size.height == 0 ? 1 : size.height;
-        
-        let desc = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .depth32Float,
-            width: Int(width),
-            height: Int(height),
-            mipmapped: false
-        )
-        desc.usage = .renderTarget
-        desc.storageMode = .private
-        self.depthTexture = device.makeTexture(descriptor: desc)
+        self.updateMTKView(view, size: size)
     }
     
     func draw(in view: MTKView) {
-        guard let drawable = view.currentDrawable,
-              let commandBuffer = commandQueue.makeCommandBuffer(),
-              let renderPassDescriptor = view.currentRenderPassDescriptor else {
-            print("Internal needed components not present")
+        guard let context = FrameDrawContext(view: view, queue: commandQueue) else {
             return
         }
         
-        renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.3, 0.3, 0.3, 1);
-        renderPassDescriptor.colorAttachments[0].loadAction = .clear;
-        renderPassDescriptor.colorAttachments[0].storeAction = .store;
+        context.setColorAttachments()
+        context.setDepthTexture(depthTexture)
         
-        if let depth = depthTexture {
-            renderPassDescriptor.depthAttachment.texture = depth
-            renderPassDescriptor.depthAttachment.loadAction = .clear
-            renderPassDescriptor.depthAttachment.storeAction = .dontCare
-            renderPassDescriptor.depthAttachment.clearDepth = 1.0
-        }
-        
-        guard let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else {
-            print("unable to create render encoder")
+        guard let renderEncoder = context.makeEncoder() else {
             return;
         }
     
@@ -156,33 +103,10 @@ final class SimpleCubeRenderer : NSObject, MTKViewDelegate {
         renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: cubeMesh.count, instanceCount: 1)
         
         renderEncoder.endEncoding()
-        commandBuffer.present(drawable)
-        commandBuffer.commit()
+        context.commit()
     }
     
     static func buildPipeline(device: MTLDevice) throws -> MTLRenderPipelineState {
-        let pipelineDescriptor = MTLRenderPipelineDescriptor()
-        guard let library = device.makeDefaultLibrary() else {
-            throw MissingMetalComponentError.defaultLibrary
-        }
-        
-        guard  let vertexFunction = library.makeFunction(name: "simple3dVertex") else {
-            throw MissingMetalComponentError.libraryFunction("simple3dVertex")
-        }
-        
-        guard let fragmentFunction = library.makeFunction(name: "simple3dFragment") else {
-            throw MissingMetalComponentError.libraryFunction("simple3dFragment")
-        }
-        
-        pipelineDescriptor.vertexFunction = vertexFunction
-        pipelineDescriptor.fragmentFunction = fragmentFunction
-        pipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm;
-        pipelineDescriptor.depthAttachmentPixelFormat = .depth32Float
-        
-        return try device.makeRenderPipelineState(descriptor: pipelineDescriptor)
-    }
-    
-    static func makePerspective(fov: Float = .pi / 3, aspectRatio: Float, nearZ: Float = 0.1, farZ: Float = 100) -> float4x4 {
-        float4x4(perspectiveFov: fov, aspectRatio: aspectRatio, nearZ: nearZ, farZ: farZ)
+        return try Self.makeSimplePipeline(device, vertex: "simple3dVertex", fragment: "simple3dFragment")
     }
 }

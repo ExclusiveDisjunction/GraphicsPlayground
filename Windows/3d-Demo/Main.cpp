@@ -1,4 +1,7 @@
 #include <Windows.h>
+#include <d3d11.h>
+#include <d3d11_3.h>
+#pragma comment(lib, "d3d11.lib")
 
 LRESULT __stdcall WndProc(HWND, UINT, WPARAM, LPARAM);
 

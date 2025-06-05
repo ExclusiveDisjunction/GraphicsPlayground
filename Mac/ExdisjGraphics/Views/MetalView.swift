@@ -10,19 +10,16 @@ import MetalKit;
 import Foundation;
 import SwiftUI
 
-/*
- #if os(macOS)
- import AppKit
- typealias PlatformViewRepresentable = NSViewRepresentable
- #else
- import UIKit
- typealias PlatformViewRepresentable = UIViewRepresentable
- #endif
+#if os(macOS)
+import AppKit
+typealias PlatformViewRepresentable = NSViewRepresentable
+#else
+import UIKit
+typealias PlatformViewRepresentable = UIViewRepresentable
+#endif
 
- */
-
-struct MetalView<T> : NSViewRepresentable where T: MTKViewDelegate {
-    init(_ coord: T, device: MTLDevice, is2d: Bool = false) {
+public struct MetalView<T> : PlatformViewRepresentable where T: MTKViewDelegate {
+    public init(_ coord: T, device: MTLDevice, is2d: Bool = false) {
         self.coord = coord;
         self.device = device;
         self.is2d = is2d;
@@ -31,11 +28,27 @@ struct MetalView<T> : NSViewRepresentable where T: MTKViewDelegate {
     private let coord: T;
     private let is2d: Bool;
     
-    func makeCoordinator() -> T {
+    public func makeCoordinator() -> T {
         return coord;
     }
     
-    func makeNSView(context: Context) -> MTKView {
+    #if os(macOS)
+    public func makeNSView(context: Context) -> MTKView {
+        self.makeView(context: context)
+    }
+    public func updateNSView(_ nsView: MTKView, context: Context) {
+        self.updateView(nsView, context: context)
+    }
+    #elseif os(iOS)
+    public func makeUIView(context: Context) -> MTKView {
+        self.makeView(context: context)
+    }
+    public func updateUIView(_ uiView: MTKView, context: Context) {
+        self.updateView(uiView, context: context)
+    }
+    #endif
+    
+    private func makeView(context: Context) -> MTKView {
         let mtkView = MTKView();
         mtkView.delegate = context.coordinator;
         mtkView.preferredFramesPerSecond = 60;
@@ -52,7 +65,7 @@ struct MetalView<T> : NSViewRepresentable where T: MTKViewDelegate {
         
         return mtkView;
     }
-    func updateNSView(_ nsView: MTKView, context: Context) {
-        nsView.drawableSize = nsView.frame.size;
+    private func updateView(_ view: MTKView, context: Context) {
+        view.drawableSize = view.frame.size;
     }
 }

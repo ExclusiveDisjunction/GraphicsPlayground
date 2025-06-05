@@ -10,6 +10,10 @@ import Metal
 
 /// A simple structure encoding a position and color.
 public struct Vertex {
+    public init(position: SIMD3<Float>, color: SIMD3<Float>) {
+        self.position = position
+        self.color = color
+    }
     /// The position of the point
     public var position: SIMD3<Float>
     /// The color of that point, or face. 
@@ -35,7 +39,7 @@ public protocol IndexBasedMesh : MeshBasis {
 }
 
 /// Represents a mesh that can be created 'context free'. Specifically, this means that the mesh is non-customizable, and just defaults to some configuration.
-protocol PrimativeMesh : MeshBasis {
+public protocol PrimativeMesh : MeshBasis {
     /// Constructs the mesh, throwing an error if something is missing. Usually this will throw `.buffer` if there is an error.
     init(_ device: MTLDevice) throws(MissingMetalComponentError);
     
@@ -43,7 +47,7 @@ protocol PrimativeMesh : MeshBasis {
     static func generateVertices() -> [Vertex]
 }
 /// This is a primative mesh that is also index based.
-protocol IndexBasedPrimativeMesh : PrimativeMesh, IndexBasedMesh {
+public protocol IndexBasedPrimativeMesh : PrimativeMesh, IndexBasedMesh {
     /// Creates the indices over the vertices required.
     static func generateIndices() -> [Int]
 }

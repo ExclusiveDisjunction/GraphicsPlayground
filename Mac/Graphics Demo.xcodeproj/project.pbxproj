@@ -40,44 +40,9 @@
 		DD72BCD82DE1630E003FAC3E /* Graphics Demo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Graphics Demo.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		DD3BDEAC2DEEA5E100FDDA36 /* Exceptions for "ExdisjGraphics" folder in "Graphics Demo" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Base/CameraController.swift,
-				Base/MeshBasis.swift,
-				Base/RenderingBasis.swift,
-				Base/Transform.swift,
-				Mesh/CubeMesh.swift,
-				Mesh/PyramidMesh.swift,
-				Views/CameraMetalView.swift,
-				Views/MetalView.swift,
-			);
-			target = DD72BCD72DE1630E003FAC3E /* Graphics Demo */;
-		};
-		DD3BDEAD2DEEA5E100FDDA36 /* Exceptions for "ExdisjGraphics" folder in "ExdisjGraphics" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Base/CameraController.swift,
-				Base/MeshBasis.swift,
-				Base/RenderingBasis.swift,
-				Base/Transform.swift,
-				Mesh/CubeMesh.swift,
-				Mesh/PyramidMesh.swift,
-				Views/CameraMetalView.swift,
-				Views/MetalView.swift,
-			);
-			target = DD3BDE9D2DEEA44B00FDDA36 /* ExdisjGraphics */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		DD3BDE9F2DEEA44B00FDDA36 /* ExdisjGraphics */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				DD3BDEAC2DEEA5E100FDDA36 /* Exceptions for "ExdisjGraphics" folder in "Graphics Demo" target */,
-				DD3BDEAD2DEEA5E100FDDA36 /* Exceptions for "ExdisjGraphics" folder in "ExdisjGraphics" target */,
-			);
 			path = ExdisjGraphics;
 			sourceTree = "<group>";
 		};
@@ -508,10 +473,11 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				XROS_DEPLOYMENT_TARGET = 2.4;
 			};
 			name = Debug;
@@ -550,10 +516,11 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				XROS_DEPLOYMENT_TARGET = 2.4;
 			};
 			name = Release;

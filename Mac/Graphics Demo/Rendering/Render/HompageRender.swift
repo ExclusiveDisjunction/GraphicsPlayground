@@ -8,6 +8,7 @@
 import SwiftUI
 import Metal
 import MetalKit
+import ExdisjGraphics
 
 final class HomepageRender : RendererBasis3d, MTKViewDelegate {
     var pipeline: MTLRenderPipelineState;

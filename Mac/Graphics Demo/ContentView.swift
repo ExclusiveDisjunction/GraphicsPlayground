@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import ExdisjGraphics
 
 enum RenderChoices : String, CaseIterable, Identifiable{
     case triangle = "2d Triangle"

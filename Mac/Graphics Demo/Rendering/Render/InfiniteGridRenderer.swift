@@ -8,6 +8,7 @@
 import MetalKit
 import Metal
 import simd
+import ExdisjGraphics
 
 struct XZAxisPlaneMesh : MeshBasis {
     static var name: String { "XZAxisPlaneMesh" }

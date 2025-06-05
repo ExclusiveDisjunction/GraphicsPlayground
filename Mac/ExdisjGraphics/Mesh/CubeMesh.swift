@@ -8,12 +8,12 @@
 import MetalKit
 import Metal
 
-final class CubeMesh : PrimativeMesh {
-    static var name: String { "Cube" }
-    var buffer: MTLBuffer
-    var count: Int;
+public final class CubeMesh : PrimativeMesh {
+    public static var name: String { "Cube" }
+    public var buffer: MTLBuffer
+    public var count: Int;
     
-    init(_ device: MTLDevice) throws(MissingMetalComponentError) {
+    public init(_ device: MTLDevice) throws(MissingMetalComponentError) {
         let vertices: [Vertex] = CubeMesh.generateVertices()
         self.count = vertices.count
         
@@ -24,7 +24,7 @@ final class CubeMesh : PrimativeMesh {
         self.buffer = vertexBuffer
     }
     
-    static func generateVertices() -> [Vertex] {
+    public static func generateVertices() -> [Vertex] {
         let r = SIMD3<Float>(1, 0, 0)
         let g = SIMD3<Float>(0, 1, 0)
         let b = SIMD3<Float>(0, 0, 1)

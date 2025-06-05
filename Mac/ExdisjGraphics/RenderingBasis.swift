@@ -9,14 +9,14 @@ import MetalKit
 import Metal
 
 /// A base class that can be used to assist with building renderers.
-class RendererBasis : NSObject {
+open class RendererBasis : NSObject {
     /// The attached device
-    var device: MTLDevice;
+    public let device: MTLDevice;
     /// The attached command queue
-    var commandQueue: MTLCommandQueue;
+    public let commandQueue: MTLCommandQueue;
     
     /// Constructs the required elements, and throws an error if something could not be created.
-    init(_ device: MTLDevice) throws(MissingMetalComponentError) {
+    public init(_ device: MTLDevice) throws(MissingMetalComponentError) {
         self.device = device;
         
         guard let commandQueue = device.makeCommandQueue() else {
@@ -28,12 +28,12 @@ class RendererBasis : NSObject {
     }
     
     /// Creates a matrix representing the perspective matrix, given specific values.
-    static func createPerspective(fov: Float = .pi / 3, aspect: Float, nearZ: Float = 0.1, farZ: Float = 100) -> float4x4 {
+    public static func createPerspective(fov: Float = .pi / 3, aspect: Float, nearZ: Float = 0.1, farZ: Float = 100) -> float4x4 {
         float4x4(perspectiveFov: fov, aspectRatio: aspect, nearZ: nearZ, farZ: farZ)
     }
     
     /// Creates a pipleine using `bgra8Unorm` for pixel format, and `depth32Float` for the depth pixel format. It will create the metal functions with the specified names.
-    static func makeSimplePipeline(_ device: MTLDevice, vertex: String, fragment: String, is2d: Bool = false) throws -> MTLRenderPipelineState {
+    public static func makeSimplePipeline(_ device: MTLDevice, vertex: String, fragment: String, is2d: Bool = false) throws -> MTLRenderPipelineState {
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
         
         guard let library = device.makeDefaultLibrary() else {
@@ -51,7 +51,7 @@ class RendererBasis : NSObject {
     }
     
     /// Obtains a function out of the metal library, throwing `MissingMetalComponentError.libraryFunction()` if it could not be found.
-    static func getMetalFunction(_ library: MTLLibrary, name: String) throws(MissingMetalComponentError) -> MTLFunction {
+    public static func getMetalFunction(_ library: MTLLibrary, name: String) throws(MissingMetalComponentError) -> MTLFunction {
         guard let target = library.makeFunction(name: name) else {
             throw MissingMetalComponentError.libraryFunction(name)
         }
@@ -61,17 +61,19 @@ class RendererBasis : NSObject {
 }
 
 /// A base class that can be used to assist with building renderers. This one specifically aids with 3d rendering.
-class RendererBasis3d : RendererBasis {
+open class RendererBasis3d : RendererBasis {
+    private var _depthTexture: MTLTexture?;
+    
     /// The attached depth stencil state for 3d rendering
-    var depthStencilState: MTLDepthStencilState;
+    public  let depthStencilState: MTLDepthStencilState;
     /// The depth texture used to aid with 3d rendering
-    var depthTexture: MTLTexture?;
+    public var depthTexture: MTLTexture? { _depthTexture }
     
     /// The projection matrix used for transformations.
-    var projectionMatrix: float4x4;
+    public var projectionMatrix: float4x4;
     
     /// Constructs the required elements, and throws an error if something could not be created.
-    override init(_ device: MTLDevice) throws(MissingMetalComponentError) {
+    public override init(_ device: MTLDevice) throws(MissingMetalComponentError) {
         let depthStencilDescriptor = MTLDepthStencilDescriptor()
         depthStencilDescriptor.depthCompareFunction = .less
         depthStencilDescriptor.isDepthWriteEnabled = true
@@ -86,7 +88,7 @@ class RendererBasis3d : RendererBasis {
     }
     
     /// Updates the projection matrix and the 3d texture.
-    func updateMTKView(_ view: MTKView, size: CGSize) {
+    public func updateMTKView(_ view: MTKView, size: CGSize) {
         let width = size.width == 0 ? 1 : size.width;
         let height = size.height == 0 ? 1 : size.height;
         
@@ -100,14 +102,14 @@ class RendererBasis3d : RendererBasis {
         )
         desc.usage = [.shaderRead, .renderTarget]
         desc.storageMode = .memoryless
-        self.depthTexture = device.makeTexture(descriptor: desc)
+        self._depthTexture = device.makeTexture(descriptor: desc)
     }
 }
 
 /// A wrapper to help with setting up and completing a frame draw.
-struct FrameDrawContext {
+public struct FrameDrawContext {
     /// Attempts to extract information out of the `view` and `queue` to start the frame drawing process. This returns `nil` if something is missing.
-    init?(view: MTKView, queue: MTLCommandQueue) {
+    public init?(view: MTKView, queue: MTLCommandQueue) {
         guard let drawable = view.currentDrawable,
               let commandBuffer = queue.makeCommandBuffer(),
               let renderPassDescriptor = view.currentRenderPassDescriptor else {
@@ -120,21 +122,21 @@ struct FrameDrawContext {
     }
     
     /// The drawable context
-    let drawable: CAMetalDrawable;
+    public let drawable: CAMetalDrawable;
     /// The command buffer
-    let commandBuffer: MTLCommandBuffer;
+    public let commandBuffer: MTLCommandBuffer;
     /// The render pass descriptor for creating a command encoder.
-    let renderPassDescriptor: MTLRenderPassDescriptor;
+    public let renderPassDescriptor: MTLRenderPassDescriptor;
     
     /// Sets the color attachments for the `renderPassDescriptor`.
-    func setColorAttachments(bk: SIMD3<Double> = .init(0.3, 0.3, 0.3), load: MTLLoadAction = .clear, store: MTLStoreAction = .store) {
+    public func setColorAttachments(bk: SIMD3<Double> = .init(0.3, 0.3, 0.3), load: MTLLoadAction = .clear, store: MTLStoreAction = .store) {
         renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(bk.x, bk.y, bk.z, 1);
         renderPassDescriptor.colorAttachments[0].loadAction = load;
         renderPassDescriptor.colorAttachments[0].storeAction = store;
     }
     
     /// If a texture is provided, it will store it in the `renderPassDescriptor`.
-    func setDepthTexture(_ texture: MTLTexture?, load: MTLLoadAction = .clear, store: MTLStoreAction = .dontCare, colorDepth: Float = 1.0) {
+    public func setDepthTexture(_ texture: MTLTexture?, load: MTLLoadAction = .clear, store: MTLStoreAction = .dontCare, colorDepth: Float = 1.0) {
         if let texture = texture {
             renderPassDescriptor.depthAttachment.texture = texture
             renderPassDescriptor.depthAttachment.loadAction = .clear
@@ -144,12 +146,12 @@ struct FrameDrawContext {
     }
     
     /// Uses the `renderPassDescriptor` and `commandBuffer` to create a command encoder.
-    func makeEncoder() -> MTLRenderCommandEncoder? {
+    public func makeEncoder() -> MTLRenderCommandEncoder? {
         return commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)
     }
     
     /// Presents the `drawable` to the command buffer, and commits on the command buffer.
-    func commit() {
+    public func commit() {
         commandBuffer.present(drawable)
         commandBuffer.commit()
     }

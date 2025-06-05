@@ -7,6 +7,7 @@
 
 import Metal
 import MetalKit
+import ExdisjGraphics
 
 struct AxisMesh : MeshBasis {
     init(_ device: any MTLDevice, dim: Int) throws(MissingMetalComponentError) {

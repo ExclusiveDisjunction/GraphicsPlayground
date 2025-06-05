@@ -10,8 +10,8 @@ import MetalKit;
 import Foundation;
 import SwiftUI
 
-struct CameraMetalView<T> : View where T: MTKViewDelegate {
-    init(_ coord: T, device: MTLDevice, camera: CameraController) {
+public struct CameraMetalView<T> : View where T: MTKViewDelegate {
+    public init(_ coord: T, device: MTLDevice, camera: CameraController) {
         self.coord = coord;
         self.device = device;
         self.camera = camera;
@@ -20,7 +20,7 @@ struct CameraMetalView<T> : View where T: MTKViewDelegate {
     private let coord: T;
     private let camera: CameraController;
     
-    var body: some View {
+    public var body: some View {
         MetalView(coord, device: device)
             .focusable()
             .onKeyPress{ key in

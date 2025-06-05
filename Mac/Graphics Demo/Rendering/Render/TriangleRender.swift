@@ -8,6 +8,7 @@
 import Metal
 import MetalKit
 import SwiftUI
+import ExdisjGraphics
 
 final class TriangleRender : NSObject, MTKViewDelegate {
     var device: MTLDevice;

@@ -54,6 +54,18 @@ public extension float4x4 {
                   SIMD4<Float>(0, 0, 1, 0),
                   SIMD4<Float>(0, 0, 0, 1))
     }
+    
+    /// Computes the matrix needed for a perspective matrix.
+    init(perspectiveFov fovY: Float, aspectRatio: Float, nearZ: Float, farZ: Float) {
+        let y = 1 / tan(fovY * 0.5)
+        let x = y / aspectRatio
+        let z = farZ / (nearZ - farZ)
+        
+        self.init(SIMD4<Float>( x,  0,  0,   0),
+                  SIMD4<Float>( 0,  y,  0,   0),
+                  SIMD4<Float>( 0,  0,  z,  -1),
+                  SIMD4<Float>( 0,  0,  z * nearZ,  0))
+    }
 }
 
 

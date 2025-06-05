@@ -8,12 +8,12 @@
 import Metal
 import MetalKit
 
-final class PyramidMesh : PrimativeMesh {
-    static var name: String { "Pyramid" }
-    var buffer: MTLBuffer;
-    var count: Int;
+public final class PyramidMesh : PrimativeMesh {
+    public static var name: String { "Pyramid" }
+    public var buffer: MTLBuffer;
+    public var count: Int;
     
-    init(_ device: MTLDevice) throws(MissingMetalComponentError) {
+    public init(_ device: MTLDevice) throws(MissingMetalComponentError) {
         let vertices: [Vertex] = Self.generateVertices()
         self.count = vertices.count
         
@@ -24,7 +24,7 @@ final class PyramidMesh : PrimativeMesh {
         self.buffer = vertexBuffer
     }
     
-    static func generateVertices() -> [Vertex] {
+    public static func generateVertices() -> [Vertex] {
         let red = SIMD3<Float>(1, 0, 0)
         let green = SIMD3<Float>(0, 1, 0)
         let blue = SIMD3<Float>(0, 0, 1)

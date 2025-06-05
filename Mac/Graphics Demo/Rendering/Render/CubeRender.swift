@@ -9,6 +9,7 @@ import MetalKit
 import Metal
 import Foundation
 import simd
+import ExdisjGraphics
 
 extension float4x4 {
     init(perspectiveFov fovY: Float, aspectRatio: Float, nearZ: Float, farZ: Float) {

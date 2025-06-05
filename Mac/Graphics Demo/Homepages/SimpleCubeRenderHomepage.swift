@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Metal
+import ExdisjGraphics
 
 struct SimpleCubeRenderHomepage : View {
     init() {

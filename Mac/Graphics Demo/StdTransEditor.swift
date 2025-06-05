@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import ExdisjGraphics
 
 struct BetterSlider : View {
     @Binding var to: Float;

@@ -25,22 +25,21 @@ struct Graphics_DemoApp: App {
         WindowGroup {
             ContentView()
                 //.frame(width: 700, height: 500)
-        }.windowResizability(.contentSize)
-            .windowStyle(HiddenTitleBarWindowStyle())
+        }
         
-        Window("Cubes", id: "cubeRender") {
+        WindowGroup("Cubes", id: "cubeRender") {
             CubeRenderHomepage()
         }
         
-        Window("Simple Cube", id: "simpleCubeRender") {
+        WindowGroup("Simple Cube", id: "simpleCubeRender") {
             SimpleCubeRenderHomepage()
         }
         
-        Window("2d Triangle", id: "simpleTriangle") {
+        WindowGroup("2d Triangle", id: "simpleTriangle") {
             TriangleRenderHomepage()
         }
         
-        Window("Grid Demo", id: "gridDemo") {
+        WindowGroup("Grid Demo", id: "gridDemo") {
             GridRenderHomepage()
         }
     }

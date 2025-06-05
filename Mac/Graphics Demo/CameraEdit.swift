@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import ExdisjGraphics
 
 struct CameraEdit : View {
     @Bindable var control: CameraController;

@@ -124,15 +124,15 @@ struct ContentView : View {
     }
     
     var body: some View {
-        HStack(spacing: 0) {
-            title
-                .background(makeRenderBackground)
-            
+        NavigationSplitView {
             options
                 .background(Rectangle().fill(.background.secondary))
                 .frame(width: 200)
-            
-        }.frame(minWidth: 600, maxWidth: 600, minHeight: 400, maxHeight: 450)
+        } detail: {
+            title
+                .background(makeRenderBackground)
+                .navigationTitle("")
+        }
     }
 }
 

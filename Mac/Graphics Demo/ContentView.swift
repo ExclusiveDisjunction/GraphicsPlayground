@@ -50,6 +50,7 @@ struct ContentView : View {
     }
     
     @State private var device: MTLDevice;
+    @State private var showInspector: Bool = false;
     private var render: HomepageRender?;
     
     @Environment(\.openWindow) private var openWindow;
@@ -125,17 +126,55 @@ struct ContentView : View {
     
     var body: some View {
         NavigationSplitView {
-            options
-                .background(Rectangle().fill(.background.secondary))
-                .frame(width: 200)
+            VStack {
+                Text("Renderers")
+                    .font(.title2)
+                    
+                List {
+                    
+                }
+            }.padding(.top)
+        } content: {
+            VStack {
+                Text("Scene")
+                    .font(.title2)
+                
+                List {
+                    
+                }
+            }.padding(.top)
         } detail: {
-            title
-                .background(makeRenderBackground)
-                .navigationTitle("")
-        }
+            Text("this is detail")
+        }.navigationSplitViewStyle(.prominentDetail)
+            .inspector(isPresented: $showInspector) {
+                
+            }
+            .inspectorColumnWidth(ideal: 200)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showInspector.toggle()
+                    } label: {
+                        Label(showInspector ? "Hide Inspector" : "Show Inspector", systemImage: "sidebar.right")
+                    }
+                }
+            }
+        
+        /*
+         NavigationSplitView {
+         options
+         .background(Rectangle().fill(.background.secondary))
+         .frame(width: 200)
+         } detail: {
+         title
+         .background(makeRenderBackground)
+         .navigationTitle("")
+         }
+         */
     }
 }
 
 #Preview {
     ContentView()
+        .frame(width: 600, height: 500)
 }

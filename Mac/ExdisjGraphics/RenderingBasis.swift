@@ -109,6 +109,7 @@ open class RendererBasis3d : RendererBasis {
 /// A wrapper to help with setting up and completing a frame draw.
 public struct FrameDrawContext {
     /// Attempts to extract information out of the `view` and `queue` to start the frame drawing process. This returns `nil` if something is missing.
+    @MainActor
     public init?(view: MTKView, queue: MTLCommandQueue) {
         guard let drawable = view.currentDrawable,
               let commandBuffer = queue.makeCommandBuffer(),

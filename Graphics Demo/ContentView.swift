@@ -122,7 +122,7 @@ struct ContentView : View {
             self.render = .homepage(try HomepageRender(device))
         }
         catch let e {
-            fatalError("unable to open")
+            fatalError("unable to open due to \(e)")
         }
     }
     

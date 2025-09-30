@@ -12,10 +12,18 @@ import ExdisjGraphics
 struct AxisMesh : MeshBasis {
     init(_ device: any MTLDevice, dim: Int) throws(MissingMetalComponentError) {
         let vertices = Self.generateVertices(dim);
-        
-        guard let buffer = device.makeBuffer(bytes: vertices, length: MemoryLayout<Vertex>.stride * vertices.count) else {
+        guard !vertices.isEmpty else {
+            print("Invalid input, vertex buffer is empty.")
             throw .buffer
         }
+        
+        let buffer = vertices.withUnsafeBytes { unsafePtr in
+            device.makeBuffer(bytes: unsafePtr.baseAddress!, length: unsafePtr.count)
+        };
+        
+            guard let buffer = buffer else {
+                throw .buffer
+            }
         
         self.buffer = buffer
         self.count = vertices.count

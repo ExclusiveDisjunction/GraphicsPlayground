@@ -61,3 +61,30 @@ public struct MetalView<T> : NSViewRepresentable where T: MTKViewDelegate {
         view.drawableSize = view.frame.size;
     }
 }
+
+struct VectorFieldView : View {
+    let render: VectorRenderer;
+    let device: MTLDevice;
+    
+    @GestureState private var zoom: Float = 1.0;
+    @State private var baseZoom: Float = 1.0;
+    
+    var body: some View {
+        MetalView(render, device: device, is2d: true)
+            .focusable()
+            .gesture(
+                MagnifyGesture()
+                    .updating($zoom) { state, gestureState, _ in
+                        gestureState = Float(state.magnification)
+                    }
+                    .onEnded { state in
+                        baseZoom *= Float(state.magnification)
+                        baseZoom = max(0.1, min(baseZoom, 4.0));
+                    }
+            )
+            .onChange(of: zoom) { _, zoom in
+                let currentZoom = baseZoom * Float(zoom);
+                render.zoom = max(0.1, min(currentZoom, 4.0));
+            }
+    }
+}

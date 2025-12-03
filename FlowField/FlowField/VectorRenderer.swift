@@ -30,6 +30,21 @@ extension ColorSchema {
     }
 }
 
+@Observable
+public class VectorRendererProperties {
+    public init(panX: Float, panY: Float) {
+        self.colors = ColorSchema(min: SIMD3(0.337255, 0.7568628, 0.9098039), max: SIMD3(0.462745, 0.337255, 0.9098039))
+        self.zoom = 1;
+        self.panX = panX;
+        self.panY = panY;
+    }
+    
+    public var colors: ColorSchema;
+    public var zoom: Float;
+    public var panX: Float;
+    public var panY: Float;
+}
+
 public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendable {
     public init(_ device: MTLDevice, qnty: SIMD2<Int>, size: SIMD2<Float>) throws(MissingMetalComponentError) {
         
@@ -50,9 +65,7 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         self.qnty = qnty;
         self.size = size;
         self.count = count;
-        self.zoom = 1;
-        self.panX = -size.x;
-        self.panY = -size.y;
+        self.prop = .init(panX: -size.x, panY: -size.y);
         
         self.projection = float3x3(
             rows: [
@@ -63,7 +76,7 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         );
         
         self.colors = ColorSchema(min: SIMD3(0.337255, 0.7568628, 0.9098039), max: SIMD3(0.462745, 0.337255, 0.9098039))
-        
+
         try super.init(device)
         
         self.randomizeBuffer();
@@ -138,24 +151,21 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         
         self.randomizeBuffer()
     }
-    
-    public private(set) var qnty: SIMD2<Int>;
-    public private(set) var size: SIMD2<Float>;
-    public private(set) var count: Int;
+
+    public fileprivate(set) var qnty: SIMD2<Int>;
+    public fileprivate(set) var size: SIMD2<Float>;
+    public fileprivate(set) var count: Int;
     private var buffer: MTLBuffer;
     private let pipeline: MTLRenderPipelineState;
-    public var colors: ColorSchema;
     private var projection: float3x3;
     
-    public var zoom: Float;
-    public var panX: Float;
-    public var panY: Float;
+    public var prop: VectorRendererProperties;
     
     private var zoomMatrix: float3x3 {
         float3x3(
             rows: [
-                SIMD3(zoom, 0, 0),
-                SIMD3(0, zoom, 0),
+                SIMD3(prop.zoom, 0, 0),
+                SIMD3(0, prop.zoom, 0),
                 SIMD3(0, 0, 1)
             ]
         )
@@ -163,8 +173,8 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
     private var panMatrix: float3x3 {
         float3x3(
             rows: [
-                SIMD3(1, 0, -panX),
-                SIMD3(0, 1, -panY),
+                SIMD3(1, 0, -prop.panX),
+                SIMD3(0, 1, -prop.panY),
                 SIMD3(0, 0,  1    )
             ]
         )
@@ -186,16 +196,12 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         }
         
         var transform = self.projection * self.zoomMatrix * self.panMatrix;
-        // If zoom is 1, I want the rectangle to be 3 pixels wide.
-        // If zoom is 2, I want the rectangle to be 6 pixels wide.
-        // If zoom is 0.5, I want the rectangle to be 1.5 pixels wide.
-        // So (6 - 3) / (2 - 1) = 3x + 0
-        var thickness = zoom;
+        var thickness = min(self.prop.zoom, 2.5);
     
         encoder.setVertexBuffer(self.buffer, offset: 0, index: 0);
         encoder.setVertexBytes(&transform, length: MemoryLayout<float3x3>.stride, index: 1);
         encoder.setVertexBytes(&thickness, length: MemoryLayout<Float>.stride, index: 2);
-        encoder.setFragmentBytes(&self.colors, length: MemoryLayout<ColorSchema>.stride, index: 0)
+        encoder.setFragmentBytes(&self.prop.colors, length: MemoryLayout<ColorSchema>.stride, index: 0)
         encoder.setRenderPipelineState(self.pipeline)
         
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4, instanceCount: count);

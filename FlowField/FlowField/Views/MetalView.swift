@@ -84,7 +84,7 @@ struct VectorFieldView : View {
             )
             .onChange(of: zoom) { _, zoom in
                 let currentZoom = baseZoom * Float(zoom);
-                render.zoom = max(0.1, min(currentZoom, 4.0));
+                render.prop.zoom = max(0.1, min(currentZoom, 4.0));
             }
     }
 }

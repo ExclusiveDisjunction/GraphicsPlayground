@@ -70,8 +70,6 @@ struct ContentView: View {
                                     .gridCellAnchor(.trailing)
                                 
                                 HStack {
-                                    Text( "0x" + String(render.colors.maxHex, radix: 16, uppercase: true))
-                                    Color(cgColor: render.colors.maxCGColor)
                                         .frame(width: 40, height: 40)
                                 }.gridCellAnchor(.leading)
                             }

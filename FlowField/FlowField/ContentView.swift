@@ -15,7 +15,7 @@ struct ContentView: View {
         self.device = device
         
         do {
-            self.render = try VectorRenderer(device, qnty: SIMD2(40, 40), size: SIMD2(300, 300))
+            self.render = try VectorRenderer(device, qnty: SIMD2(60, 60), size: SIMD2(300, 300))
         }
         catch let e {
             fatalError("unable to open due to \(e)")

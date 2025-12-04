@@ -65,13 +65,14 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         self.qnty = qnty;
         self.size = size;
         self.count = count;
-        self.prop = .init(panX: -size.x, panY: -size.y);
+        self.prop = .init(panX: 0, panY: 0.0);
         
-        self.projection = float3x3(
+        self.projection = float4x4(
             rows: [
-                SIMD3(2.0 / size.x, 0.0,          -1.0),
-                SIMD3(0,            2.0 / size.y, -1.0),
-                SIMD3(0,            0,             1  )
+                SIMD4(2.0 / size.x, 0.0,          -1.0, 0),
+                SIMD4(0,            2.0 / size.y, -1.0, 0),
+                SIMD4(0,            0,             1  , 0),
+                SIMD4(0,            0,             0  , 1)
             ]
         );
         
@@ -141,11 +142,12 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         self.count = count;
         self.buffer = buffer;
         
-        self.projection = float3x3(
+        self.projection = float4x4(
             rows: [
-                SIMD3(2.0 / size.x, 0.0,          -1.0),
-                SIMD3(0,            2.0 / size.y, -1.0),
-                SIMD3(0,            0,             1  )
+                SIMD4(2.0 / size.x, 0.0,          -1.0, 0),
+                SIMD4(0,            2.0 / size.y, -1.0, 0),
+                SIMD4(0,            0,             1  , 0),
+                SIMD4(0,            0,             0  , 1)
             ]
         );
         
@@ -157,27 +159,25 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
     public fileprivate(set) var count: Int;
     private var buffer: MTLBuffer;
     private let pipeline: MTLRenderPipelineState;
-    private var projection: float3x3;
+    private var projection: float4x4;
     
     public var prop: VectorRendererProperties;
     
-    private var zoomMatrix: float3x3 {
-        float3x3(
-            rows: [
-                SIMD3(prop.zoom, 0, 0),
-                SIMD3(0, prop.zoom, 0),
-                SIMD3(0, 0, 1)
+    private var zoomMatrix: float4x4 {
+        float4x4(
+            rows:[
+                SIMD4(prop.zoom, 0,         0, 0),
+                SIMD4(0,         prop.zoom, 0, 0),
+                SIMD4(0,         0,         1, 0),
+                SIMD4(0,         0,         0, 1)
             ]
         )
     }
-    private var panMatrix: float3x3 {
-        float3x3(
-            rows: [
-                SIMD3(1, 0, -prop.panX),
-                SIMD3(0, 1, -prop.panY),
-                SIMD3(0, 0,  1    )
-            ]
-        )
+    private var panMatrix: float4x4 {
+        var result = matrix_identity_float4x4;
+        result.columns.3 = SIMD4<Float>(self.prop.panX, self.prop.panY, 0.0, 1);
+        
+        return result
     }
     
     
@@ -199,7 +199,7 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         var thickness = min(self.prop.zoom, 2.5);
     
         encoder.setVertexBuffer(self.buffer, offset: 0, index: 0);
-        encoder.setVertexBytes(&transform, length: MemoryLayout<float3x3>.stride, index: 1);
+        encoder.setVertexBytes(&transform, length: MemoryLayout<float4x4>.stride, index: 1);
         encoder.setVertexBytes(&thickness, length: MemoryLayout<Float>.stride, index: 2);
         encoder.setFragmentBytes(&self.prop.colors, length: MemoryLayout<ColorSchema>.stride, index: 0)
         encoder.setRenderPipelineState(self.pipeline)

@@ -11,7 +11,7 @@ using namespace metal;
 
 vertex OutputFlowVector transformVectorOutputs(
     const device FlowVector* instances [[buffer(0)]],
-    const device float3x3& transform [[buffer(1)]],
+    const device float4x4& transform [[buffer(1)]],
     const device float& thickness [[buffer(2)]],
     uint vertexId [[vertex_id]],
     uint instanceId [[instance_id]]
@@ -55,8 +55,7 @@ vertex OutputFlowVector transformVectorOutputs(
             break;
     }
     
-    float3 transformed = transform * float3(pos, 0.0);
-    out.pos = float4(transformed, 1.0);
+    out.pos = transform * float4(pos, 0.0, 1.0);
     
     return out;
 }

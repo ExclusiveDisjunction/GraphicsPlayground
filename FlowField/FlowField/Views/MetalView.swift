@@ -67,7 +67,9 @@ struct VectorFieldView : View {
     let device: MTLDevice;
     
     @GestureState private var zoom: Float = 1.0;
+    @GestureState private var pan: CGSize = .init(width: 0.0, height: 0.0);
     @State private var baseZoom: Float = 1.0;
+    @State private var basePan: CGSize = .init(width: 0.0, height: 0.0);
     
     var body: some View {
         MetalView(render, device: device, is2d: true)
@@ -82,9 +84,24 @@ struct VectorFieldView : View {
                         baseZoom = max(0.1, min(baseZoom, 4.0));
                     }
             )
+            .gesture(
+                DragGesture()
+                    .updating($pan) { state, gestureState, _ in
+                        gestureState = state.translation
+                    }
+                    .onEnded { state in
+                        basePan.width += state.translation.width;
+                        basePan.height += state.translation.height;
+                    }
+            )
             .onChange(of: zoom) { _, zoom in
                 let currentZoom = baseZoom * Float(zoom);
                 render.prop.zoom = max(0.1, min(currentZoom, 4.0));
+            }
+            .onChange(of: pan) { _, pan in
+                let currentPan = (Float(basePan.width + pan.width), Float(basePan.height + pan.height));
+                render.prop.panX = currentPan.0 / render.prop.zoom;
+                render.prop.panY = -currentPan.1 / render.prop.zoom;
             }
     }
 }

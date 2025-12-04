@@ -30,7 +30,7 @@ vertex OutputFlowVector transformVectorOutputs(
     float2 tip;
     {
         float angle = value.angMag.x;
-        float mag = 4;
+        float mag = mix(0, 4, value.angMag.y);
         tip = value.tail + float2(cos(angle), sin(angle)) * mag;
     }
     

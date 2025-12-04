@@ -76,7 +76,7 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
             ]
         );
         
-        self.colors = ColorSchema(min: SIMD3(0.337255, 0.7568628, 0.9098039), max: SIMD3(0.462745, 0.337255, 0.9098039))
+        self.prop.colors = ColorSchema(min: SIMD3(0.337255, 0.7568628, 0.9098039), max: SIMD3(0.462745, 0.337255, 0.9098039))
 
         try super.init(device)
         
@@ -196,7 +196,7 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         }
         
         var transform = self.projection * self.zoomMatrix * self.panMatrix;
-        var thickness = min(self.prop.zoom, 2.5);
+        var thickness = max(min(self.prop.zoom / 2, 1.5), 0.2);
     
         encoder.setVertexBuffer(self.buffer, offset: 0, index: 0);
         encoder.setVertexBytes(&transform, length: MemoryLayout<float4x4>.stride, index: 1);

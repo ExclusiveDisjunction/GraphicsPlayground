@@ -59,8 +59,8 @@ struct ContentView: View {
                                     .gridCellAnchor(.trailing)
                                 
                                 HStack {
-                                    Text( "0x" + String(render.colors.minHex, radix: 16, uppercase: true))
-                                    Color(cgColor: render.colors.minCGColor)
+                                    Text( "0x" + String(render.prop.colors.minHex, radix: 16, uppercase: true))
+                                    Color(cgColor: render.prop.colors.minCGColor)
                                         .frame(width: 40, height: 40)
                                 }.gridCellAnchor(.leading)
                             }
@@ -70,6 +70,8 @@ struct ContentView: View {
                                     .gridCellAnchor(.trailing)
                                 
                                 HStack {
+                                    Text( "0x" + String(render.prop.colors.maxHex, radix: 16, uppercase: true))
+                                    Color(cgColor: render.prop.colors.maxCGColor)
                                         .frame(width: 40, height: 40)
                                 }.gridCellAnchor(.leading)
                             }
@@ -92,7 +94,7 @@ struct ContentView: View {
                             }
                             
                             GridRow {
-                                Slider(value: $render.panX, in: -render.size.x...render.size.x) {
+                                Slider(value: $render.prop.panX, in: -render.size.x...render.size.x) {
                                     Text("X:")
                                 } minimumValueLabel: {
                                     Text(-render.size.x, format: .number.precision(.fractionLength(0)))
@@ -102,7 +104,7 @@ struct ContentView: View {
                             }
                             
                             GridRow {
-                                Slider(value: $render.panY, in: -render.size.y...render.size.y) {
+                                Slider(value: $render.prop.panY, in: -render.size.y...render.size.y) {
                                     Text("Y:")
                                 } minimumValueLabel: {
                                     Text(-render.size.y, format: .number.precision(.fractionLength(0)))
@@ -112,7 +114,7 @@ struct ContentView: View {
                             }
                             
                             GridRow {
-                                Slider(value: $render.zoom, in: 0.1...4) {
+                                Slider(value: $render.prop.zoom, in: 0.1...4) {
                                     Text("Zoom:")
                                 } minimumValueLabel: {
                                     Text(0.1, format: .number.precision(.fractionLength(1)))

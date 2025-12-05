@@ -15,8 +15,8 @@ kernel void setupVectors(
     uint instanceId [[thread_position_in_grid]]
 ) {
     // Determine the i, j values for the grid based on the step
-    uint i = instanceId % cx.size.x;
-    uint j = instanceId / cx.size.y;
+    uint i = instanceId % cx.sizex;
+    uint j = instanceId / cx.sizey;
     
     float2 pos = float2(float(i), float(j));
     
@@ -35,7 +35,7 @@ kernel void animateVectors(
     const device VectorsSetupCx& cx [[buffer(1)]],
     uint instanceId [[thread_position_in_grid]]
 ) {
-    instances[instanceId].angMag.y += M_PI_F / 16;
+    instances[instanceId].angMag.x += M_PI_F / 16;
 }
 
 vertex OutputFlowVector transformVectorOutputs(

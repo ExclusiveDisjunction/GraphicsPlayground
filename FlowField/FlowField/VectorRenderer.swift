@@ -46,7 +46,7 @@ public class VectorRendererProperties {
 }
 
 public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendable {
-    public init(_ device: MTLDevice, qnty: SIMD2<Int>, size: SIMD2<Float>) throws(MissingMetalComponentError) {
+    public init(_ device: MTLDevice, qnty: SIMD2<Int>, size: SIMD2<Float>) throws {
         
         let stride = MemoryLayout<FlowVector>.stride;
         let count = qnty.x * qnty.y;
@@ -55,7 +55,7 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         }
         
         do {
-            self.pipeline = try Self.makeSimplePipeline(device, vertex: "transformVectorOutputs", fragment: "vectorFragment", is2d: true)
+            self.graphicsPipeline = try Self.makeSimplePipeline(device, vertex: "transformVectorOutputs", fragment: "vectorFragment", is2d: true)
         }
         catch let e {
             throw MissingMetalComponentError.pipeline(e)
@@ -66,6 +66,8 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         self.size = size;
         self.count = count;
         self.prop = .init(panX: 0, panY: 0.0);
+        self.computeSetupPipeline = try Self.makeComputePipeline(device, funcName: "setupVectors");
+        self.computeAnimatePipeline = try Self.makeComputePipeline(device, funcName: "animateVectors");
         
         self.projection = float4x4(
             rows: [
@@ -79,8 +81,16 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         self.prop.colors = ColorSchema(min: SIMD3(0.337255, 0.7568628, 0.9098039), max: SIMD3(0.462745, 0.337255, 0.9098039))
 
         try super.init(device)
+    }
+    
+    static func makeComputePipeline(_ device: MTLDevice, funcName: String) throws -> MTLComputePipelineState {
+        guard let library = device.makeDefaultLibrary() else {
+            throw MissingMetalComponentError.defaultLibrary
+        }
         
-        self.randomizeBuffer();
+        let function = try Self.getMetalFunction(library, name: funcName);
+        
+        return try device.makeComputePipelineState(function: function)
     }
     
    /*
@@ -161,7 +171,9 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
     public fileprivate(set) var count: Int;
     public fileprivate(set) var setupRun = false;
     private var buffer: MTLBuffer;
-    private let pipeline: MTLRenderPipelineState;
+    private let graphicsPipeline: MTLRenderPipelineState;
+    private let computeSetupPipeline: MTLComputePipelineState;
+    private let computeAnimatePipeline: MTLComputePipelineState;
     private var projection: float4x4;
     
     public var prop: VectorRendererProperties;
@@ -208,30 +220,84 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         }
     }
     
+    private func executeCompute(state: MTLComputePipelineState, context: borrowing FrameDrawContext, computeContext: inout VectorsSetupCx, waitingFence: MTLFence?, updatingFence: MTLFence?) -> Bool {
+        guard let computeEncoder = context.commandBuffer.makeComputeCommandEncoder() else {
+            return false;
+        }
+        
+        computeEncoder.setBuffer(self.buffer, offset: 0, index: 0);
+        computeEncoder.setBytes(&computeContext, length: MemoryLayout<VectorsSetupCx>.stride, index: 1);
+        computeEncoder.setComputePipelineState(state);
+        
+        let gridSize = MTLSize(width: self.count, height: 1, depth: 1);
+        let maxComputeSize = self.computeSetupPipeline.maxTotalThreadsPerThreadgroup;
+        var threadsPerThreadgroup = self.count;
+        if self.count > maxComputeSize {
+            threadsPerThreadgroup = maxComputeSize;
+        }
+        
+        if let fence = waitingFence {
+            computeEncoder.waitForFence(fence)
+        }
+        
+        computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: MTLSize(width: threadsPerThreadgroup, height: 1, depth: 1))
+        
+        if let fence = updatingFence {
+            computeEncoder.updateFence(fence)
+        }
+        
+        computeEncoder.endEncoding()
+        return true;
+    }
+    
     public func draw(in view: MTKView) {
         guard let context = FrameDrawContext(view: view, queue: self.commandQueue) else {
             return;
         }
         
-        context.setColorAttachments();
+        var computeContext = VectorsSetupCx(step: self.size / SIMD2<Float>(self.qnty), sizex: UInt32(self.qnty.x), sizey: UInt32(self.qnty.y), corner: -self.size / 2);
         
-        guard let renderEncoder = context.makeEncoder(),
-            let computeFunctions = ComputeFunctions(device: self.device) else {
+        var setupFence: MTLFence? = nil;
+        
+        if !self.setupRun {
+            guard let fence = self.device.makeFence() else {
+                return;
+            }
+            setupFence = fence;
+            
+            guard self.executeCompute(state: self.computeSetupPipeline, context: context, computeContext: &computeContext, waitingFence: nil, updatingFence: setupFence) else {
+                print("Unable to run setup stage.")
+                return
+            }
+            
+            self.setupRun = true;
+        }
+        
+        guard let animateFence = self.device.makeFence() else {
             return;
         }
         
-        if !self.setupRun {
-            // Todo: Add the command encoder and pipeline state.
+        guard self.executeCompute(state: self.computeAnimatePipeline, context: context, computeContext: &computeContext, waitingFence: setupFence, updatingFence: animateFence) else {
+            return;
         }
+        
         
         var transform = self.projection * self.zoomMatrix * self.panMatrix;
         var thickness = max(min(self.prop.zoom / 2, 1.5), 0.2);
+        
+        context.setColorAttachments();
+        
+        guard let renderEncoder = context.makeEncoder() else {
+            return;
+        }
     
         renderEncoder.setVertexBuffer(self.buffer, offset: 0, index: 0);
         renderEncoder.setVertexBytes(&transform, length: MemoryLayout<float4x4>.stride, index: 1);
         renderEncoder.setVertexBytes(&thickness, length: MemoryLayout<Float>.stride, index: 2);
         renderEncoder.setFragmentBytes(&self.prop.colors, length: MemoryLayout<ColorSchema>.stride, index: 0)
-        renderEncoder.setRenderPipelineState(self.pipeline)
+        renderEncoder.setRenderPipelineState(self.graphicsPipeline)
+        
+        renderEncoder.waitForFence(animateFence, before: .vertex)
         
         renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4, instanceCount: count);
         
@@ -239,5 +305,3 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         context.commit();
     }
 }
-
-import SwiftUI

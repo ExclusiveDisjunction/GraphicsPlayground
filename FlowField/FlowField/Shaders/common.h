@@ -26,13 +26,14 @@ typedef struct  {
 } OutputFlowVector;
 
 typedef struct {
-    uint x;
-    uint y;
+    unsigned x;
+    unsigned y;
 } SizeUint;
 
 typedef struct {
     vector_float2 step;
-    vector_uint2 size;
+    unsigned sizex;
+    unsigned sizey;
     vector_float2 corner;
 } VectorsSetupCx;
 

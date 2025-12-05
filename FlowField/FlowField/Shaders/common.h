@@ -25,4 +25,15 @@ typedef struct  {
     float mag;
 } OutputFlowVector;
 
+typedef struct {
+    uint x;
+    uint y;
+} SizeUint;
+
+typedef struct {
+    vector_float2 step;
+    vector_uint2 size;
+    vector_float2 corner;
+} VectorsSetupCx;
+
 #endif /* common_h */

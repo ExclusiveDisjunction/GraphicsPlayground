@@ -83,51 +83,53 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         self.randomizeBuffer();
     }
     
+   /*
     private func layoutBuffer(size: CGSize) {
-        let access = self.buffer.contents().assumingMemoryBound(to: FlowVector.self);
-        let wrapper = UnsafeMutableBufferPointer(start: access, count: self.count);
-        
-        // The total world space is (0, 0) -> (w, h).
-        // The total number of elements in the x direction is qnty.x, and y follows.
-        // We start from (0, 0) in world space up to (w, h), stepping by (w / qnty.x, h / qnty.y);
-        
-        let step = self.size / SIMD2<Float>(self.qnty);
-        let corner = -self.size / 2;
-        for i in 0..<self.qnty.x {
-            let x = step.x * Float(i);
-            for j in 0..<self.qnty.y {
-                let totalIndex = j * self.qnty.x + i;
-                
-                wrapper[totalIndex].tail = corner + SIMD2(
-                    x,
-                    Float(j) * step.y
-                )
-            }
-        }
+    let access = self.buffer.contents().assumingMemoryBound(to: FlowVector.self);
+    let wrapper = UnsafeMutableBufferPointer(start: access, count: self.count);
+    
+    // The total world space is (0, 0) -> (w, h).
+    // The total number of elements in the x direction is qnty.x, and y follows.
+    // We start from (0, 0) in world space up to (w, h), stepping by (w / qnty.x, h / qnty.y);
+    
+    let step = self.size / SIMD2<Float>(self.qnty);
+    let corner = -self.size / 2;
+    for i in 0..<self.qnty.x {
+    let x = step.x * Float(i);
+    for j in 0..<self.qnty.y {
+    let totalIndex = j * self.qnty.x + i;
+    
+    wrapper[totalIndex].tail = corner + SIMD2(
+    x,
+    Float(j) * step.y
+    )
+    }
+    }
     }
     private func randomizeBuffer() {
-        let access = self.buffer.contents().assumingMemoryBound(to: FlowVector.self);
-        let wrapper = UnsafeMutableBufferPointer(start: access, count: self.count);
-        
-        let step = self.size / SIMD2<Float>(self.qnty);
-        var k = 0;
-        for i in 0..<qnty.x {
-            let x = Float(i) * step.x;
-            for j in 0..<qnty.y {
-                let y = Float(j) * step.y;
-                let target = SIMD2(sin(x), sin(y));
-                
-                let diff = (target - wrapper[k].tail);
-                let mag = sqrt(diff.x * diff.x + diff.y * diff.y);
-                let angle = atan2(diff.y, diff.x);
-                wrapper[k].angMag = SIMD2(
-                    angle,
-                    mag
-                )
-                k += 1;
-            }
-        }
+    let access = self.buffer.contents().assumingMemoryBound(to: FlowVector.self);
+    let wrapper = UnsafeMutableBufferPointer(start: access, count: self.count);
+    
+    let step = self.size / SIMD2<Float>(self.qnty);
+    var k = 0;
+    for i in 0..<qnty.x {
+    let x = Float(i) * step.x;
+    for j in 0..<qnty.y {
+    let y = Float(j) * step.y;
+    let target = SIMD2(sin(x), sin(y));
+    
+    let diff = (target - wrapper[k].tail);
+    let mag = sqrt(diff.x * diff.x + diff.y * diff.y);
+    let angle = atan2(diff.y, diff.x);
+    wrapper[k].angMag = SIMD2(
+    angle,
+    mag
+    )
+    k += 1;
     }
+    }
+    }
+    */
     
     public func resize(qnty: SIMD2<Int>, size: SIMD2<Float>) throws(BufferResizeError) {
         let count = qnty.x * qnty.y;
@@ -151,12 +153,13 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
             ]
         );
         
-        self.randomizeBuffer()
+        self.setupRun = false;
     }
 
     public fileprivate(set) var qnty: SIMD2<Int>;
     public fileprivate(set) var size: SIMD2<Float>;
     public fileprivate(set) var count: Int;
+    public fileprivate(set) var setupRun = false;
     private var buffer: MTLBuffer;
     private let pipeline: MTLRenderPipelineState;
     private var projection: float4x4;
@@ -182,8 +185,29 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
     
     
     public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-        self.layoutBuffer(size: size)
+        self.size = SIMD2(Float(size.width), Float(size.height))
+        self.setupRun = false;
     }
+    
+    struct ComputeFunctions {
+        let setup: MTLFunction;
+        let animate: MTLFunction;
+        
+        init?(device: MTLDevice) {
+            guard let lib = device.makeDefaultLibrary() else {
+                return nil;
+            }
+            
+            guard let setup = try? RendererBasis.getMetalFunction(lib, name: "setupVectors"),
+                  let animate = try? RendererBasis.getMetalFunction(lib, name: "animateVectors") else {
+                return nil;
+            }
+            
+            self.setup = setup
+            self.animate = animate
+        }
+    }
+    
     public func draw(in view: MTKView) {
         guard let context = FrameDrawContext(view: view, queue: self.commandQueue) else {
             return;
@@ -191,22 +215,27 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         
         context.setColorAttachments();
         
-        guard let encoder = context.makeEncoder() else {
+        guard let renderEncoder = context.makeEncoder(),
+            let computeFunctions = ComputeFunctions(device: self.device) else {
             return;
+        }
+        
+        if !self.setupRun {
+            // Todo: Add the command encoder and pipeline state.
         }
         
         var transform = self.projection * self.zoomMatrix * self.panMatrix;
         var thickness = max(min(self.prop.zoom / 2, 1.5), 0.2);
     
-        encoder.setVertexBuffer(self.buffer, offset: 0, index: 0);
-        encoder.setVertexBytes(&transform, length: MemoryLayout<float4x4>.stride, index: 1);
-        encoder.setVertexBytes(&thickness, length: MemoryLayout<Float>.stride, index: 2);
-        encoder.setFragmentBytes(&self.prop.colors, length: MemoryLayout<ColorSchema>.stride, index: 0)
-        encoder.setRenderPipelineState(self.pipeline)
+        renderEncoder.setVertexBuffer(self.buffer, offset: 0, index: 0);
+        renderEncoder.setVertexBytes(&transform, length: MemoryLayout<float4x4>.stride, index: 1);
+        renderEncoder.setVertexBytes(&thickness, length: MemoryLayout<Float>.stride, index: 2);
+        renderEncoder.setFragmentBytes(&self.prop.colors, length: MemoryLayout<ColorSchema>.stride, index: 0)
+        renderEncoder.setRenderPipelineState(self.pipeline)
         
-        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4, instanceCount: count);
+        renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4, instanceCount: count);
         
-        encoder.endEncoding();
+        renderEncoder.endEncoding();
         context.commit();
     }
 }

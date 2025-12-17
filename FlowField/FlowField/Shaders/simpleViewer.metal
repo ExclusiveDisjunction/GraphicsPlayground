@@ -19,7 +19,7 @@ kernel void positionVectors(
 ) {
     // Determine the i, j values for the grid based on the step
     uint i = instanceId % cx.sizex;
-    uint j = instanceId / cx.sizey;
+    uint j = instanceId / cx.sizex;
     
     float2 pos = float2(float(i), float(j));
     
@@ -33,16 +33,11 @@ kernel void angleVectors(
      const device VectorsSetupCx& cx [[buffer(1)]],
      uint instanceId [[thread_position_in_grid]]
 ) {
-    // Determine the i, j values for the grid based on the step
-    uint i = instanceId % cx.sizex;
-    uint j = instanceId / cx.sizey;
-    
-    float2 pos = float2(float(i), float(j));
-    float2 diff = sin(pos) - instances[instanceId].tail;
+    float2 pos = 6.0 * sin(instances[instanceId].tail);
     
     instances[instanceId].angMag = float2(
-        sqrt(diff.x * diff.x + diff.y * diff.y),
-        atan2(diff.y, diff.x)
+        atan2(pos.y, pos.x),
+        length(pos)
    );
 }
 
@@ -76,7 +71,7 @@ vertex OutputFlowVector transformVectorOutputs(
     float2 tip;
     {
         float angle = value.angMag.x;
-        float mag = min( value.angMag.y, 4.0 );
+        float mag = min( value.angMag.y, 7.0);
         tip = value.tail + float2(cos(angle), sin(angle)) * mag;
     }
     

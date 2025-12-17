@@ -234,9 +234,6 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
                 self.angleManifest.updatingFence = fenceB;
                 self.animateManifest.waitingFence = fenceB;
                 
-                guard self.positionManifest.execute(using: context, bufferSetup: closure) && self.angleManifest.execute(using: context, bufferSetup: closure) else {
-                    return;
-                }
             case .resized:
                 guard let fence = device.makeFence() else {
                     return;
@@ -244,14 +241,8 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
                 
                 self.positionManifest.updatingFence = fence;
                 self.animateManifest.waitingFence = fence;
-                
-                guard self.positionManifest.execute(using: context, bufferSetup: closure) else {
-                    return;
-                }
             case .noChanges:
-                guard self.animateManifest.execute(using: context, bufferSetup: closure) else {
-                    return
-                }
+                break;
         }
         
         if self.state == .resized || self.state == .firstRun {
@@ -270,7 +261,7 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         }
         
         var transform = self.projection * self.zoomMatrix * self.panMatrix;
-        var thickness = max(min(self.prop.zoom / 2, 1.5), 0.2);
+        var thickness = max(min(self.prop.zoom / 2, 1.5), 1);
         
         context.setColorAttachments();
         

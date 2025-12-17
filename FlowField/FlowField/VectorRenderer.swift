@@ -30,6 +30,57 @@ extension ColorSchema {
     }
 }
 
+public enum FirstTimeState {
+    case firstRun
+    case resized
+    case noChanges
+}
+
+public struct ComputeManifest {
+    public let function: MTLFunction;
+    public let pipeline: MTLComputePipelineState;
+    public var waitingFence: MTLFence?;
+    public var updatingFence: MTLFence?;
+    
+    public init(functionName: String, using: MTLLibrary, device: MTLDevice) throws {
+        self.function = try RendererBasis.getMetalFunction(using, name: functionName);
+        self.pipeline = try device.makeComputePipelineState(function: function);
+    }
+    
+    public func execute(using: borrowing FrameDrawContext, bufferSetup: (MTLComputeCommandEncoder) throws -> Int) rethrows -> Bool {
+        guard let encoder = using.commandBuffer.makeComputeCommandEncoder() else {
+            return false;
+        }
+        
+        let count = try bufferSetup(encoder);
+        encoder.setComputePipelineState(self.pipeline);
+        
+        let gridSize = MTLSize(width: count, height: 1, depth: 1);
+        let maxComputeSize = self.pipeline.maxTotalThreadsPerThreadgroup;
+        var threadsPerThreadgroup = count;
+        if count > maxComputeSize {
+            threadsPerThreadgroup = maxComputeSize;
+        }
+        
+        if let fence = self.waitingFence {
+            encoder.waitForFence(fence)
+        }
+        
+        encoder.dispatchThreads(gridSize, threadsPerThreadgroup: MTLSize(width: threadsPerThreadgroup, height: 1, depth: 1))
+        
+        if let fence = updatingFence {
+            encoder.updateFence(fence)
+        }
+        
+        encoder.endEncoding()
+        return true;
+    }
+    public mutating func resetFences() {
+        self.updatingFence = nil;
+        self.waitingFence = nil;
+    }
+}
+
 @Observable
 public class VectorRendererProperties {
     public init(panX: Float, panY: Float) {
@@ -47,7 +98,6 @@ public class VectorRendererProperties {
 
 public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendable {
     public init(_ device: MTLDevice, qnty: SIMD2<Int>, size: SIMD2<Float>) throws {
-        
         let stride = MemoryLayout<FlowVector>.stride;
         let count = qnty.x * qnty.y;
         guard let buffer = device.makeBuffer(length: stride * count, options: .storageModeShared) else {
@@ -66,8 +116,19 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         self.size = size;
         self.count = count;
         self.prop = .init(panX: 0, panY: 0.0);
-        self.computeSetupPipeline = try Self.makeComputePipeline(device, funcName: "setupVectors");
-        self.computeAnimatePipeline = try Self.makeComputePipeline(device, funcName: "animateVectors");
+        
+        guard let library = device.makeDefaultLibrary() else {
+            throw MissingMetalComponentError.defaultLibrary;
+        }
+        
+        self.positionManifest = try .init(functionName: "positionVectors", using: library, device: device);
+        self.angleManifest = try .init(functionName: "angleVectors", using: library, device: device);
+        self.animateManifest = try .init(functionName: "animateVectors", using: library, device: device);
+        
+        guard let animateFence = device.makeFence() else {
+            throw MissingMetalComponentError.fence;
+        }
+        self.animateManifest.updatingFence = animateFence;
         
         self.projection = float4x4(
             rows: [
@@ -82,64 +143,6 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
 
         try super.init(device)
     }
-    
-    static func makeComputePipeline(_ device: MTLDevice, funcName: String) throws -> MTLComputePipelineState {
-        guard let library = device.makeDefaultLibrary() else {
-            throw MissingMetalComponentError.defaultLibrary
-        }
-        
-        let function = try Self.getMetalFunction(library, name: funcName);
-        
-        return try device.makeComputePipelineState(function: function)
-    }
-    
-   /*
-    private func layoutBuffer(size: CGSize) {
-    let access = self.buffer.contents().assumingMemoryBound(to: FlowVector.self);
-    let wrapper = UnsafeMutableBufferPointer(start: access, count: self.count);
-    
-    // The total world space is (0, 0) -> (w, h).
-    // The total number of elements in the x direction is qnty.x, and y follows.
-    // We start from (0, 0) in world space up to (w, h), stepping by (w / qnty.x, h / qnty.y);
-    
-    let step = self.size / SIMD2<Float>(self.qnty);
-    let corner = -self.size / 2;
-    for i in 0..<self.qnty.x {
-    let x = step.x * Float(i);
-    for j in 0..<self.qnty.y {
-    let totalIndex = j * self.qnty.x + i;
-    
-    wrapper[totalIndex].tail = corner + SIMD2(
-    x,
-    Float(j) * step.y
-    )
-    }
-    }
-    }
-    private func randomizeBuffer() {
-    let access = self.buffer.contents().assumingMemoryBound(to: FlowVector.self);
-    let wrapper = UnsafeMutableBufferPointer(start: access, count: self.count);
-    
-    let step = self.size / SIMD2<Float>(self.qnty);
-    var k = 0;
-    for i in 0..<qnty.x {
-    let x = Float(i) * step.x;
-    for j in 0..<qnty.y {
-    let y = Float(j) * step.y;
-    let target = SIMD2(sin(x), sin(y));
-    
-    let diff = (target - wrapper[k].tail);
-    let mag = sqrt(diff.x * diff.x + diff.y * diff.y);
-    let angle = atan2(diff.y, diff.x);
-    wrapper[k].angMag = SIMD2(
-    angle,
-    mag
-    )
-    k += 1;
-    }
-    }
-    }
-    */
     
     public func resize(qnty: SIMD2<Int>, size: SIMD2<Float>) throws(BufferResizeError) {
         let count = qnty.x * qnty.y;
@@ -163,17 +166,20 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
             ]
         );
         
-        self.setupRun = false;
+        if state != .firstRun {
+            self.state = .resized;
+        }
     }
 
     public fileprivate(set) var qnty: SIMD2<Int>;
     public fileprivate(set) var size: SIMD2<Float>;
     public fileprivate(set) var count: Int;
-    public fileprivate(set) var setupRun = false;
+    public fileprivate(set) var state: FirstTimeState = .firstRun;
     private var buffer: MTLBuffer;
     private let graphicsPipeline: MTLRenderPipelineState;
-    private let computeSetupPipeline: MTLComputePipelineState;
-    private let computeAnimatePipeline: MTLComputePipelineState;
+    private var positionManifest: ComputeManifest;
+    private var angleManifest: ComputeManifest;
+    private var animateManifest: ComputeManifest;
     private var projection: float4x4;
     
     public var prop: VectorRendererProperties;
@@ -195,59 +201,11 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         return result
     }
     
-    
     public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         self.size = SIMD2(Float(size.width), Float(size.height))
-        self.setupRun = false;
-    }
-    
-    struct ComputeFunctions {
-        let setup: MTLFunction;
-        let animate: MTLFunction;
-        
-        init?(device: MTLDevice) {
-            guard let lib = device.makeDefaultLibrary() else {
-                return nil;
-            }
-            
-            guard let setup = try? RendererBasis.getMetalFunction(lib, name: "setupVectors"),
-                  let animate = try? RendererBasis.getMetalFunction(lib, name: "animateVectors") else {
-                return nil;
-            }
-            
-            self.setup = setup
-            self.animate = animate
+        if state != .firstRun { //The first run is more important, and it must be signaled first.
+            self.state = .resized;
         }
-    }
-    
-    private func executeCompute(state: MTLComputePipelineState, context: borrowing FrameDrawContext, computeContext: inout VectorsSetupCx, waitingFence: MTLFence?, updatingFence: MTLFence?) -> Bool {
-        guard let computeEncoder = context.commandBuffer.makeComputeCommandEncoder() else {
-            return false;
-        }
-        
-        computeEncoder.setBuffer(self.buffer, offset: 0, index: 0);
-        computeEncoder.setBytes(&computeContext, length: MemoryLayout<VectorsSetupCx>.stride, index: 1);
-        computeEncoder.setComputePipelineState(state);
-        
-        let gridSize = MTLSize(width: self.count, height: 1, depth: 1);
-        let maxComputeSize = self.computeSetupPipeline.maxTotalThreadsPerThreadgroup;
-        var threadsPerThreadgroup = self.count;
-        if self.count > maxComputeSize {
-            threadsPerThreadgroup = maxComputeSize;
-        }
-        
-        if let fence = waitingFence {
-            computeEncoder.waitForFence(fence)
-        }
-        
-        computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: MTLSize(width: threadsPerThreadgroup, height: 1, depth: 1))
-        
-        if let fence = updatingFence {
-            computeEncoder.updateFence(fence)
-        }
-        
-        computeEncoder.endEncoding()
-        return true;
     }
     
     public func draw(in view: MTKView) {
@@ -257,30 +215,59 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         
         var computeContext = VectorsSetupCx(step: self.size / SIMD2<Float>(self.qnty), sizex: UInt32(self.qnty.x), sizey: UInt32(self.qnty.y), corner: -self.size / 2);
         
-        var setupFence: MTLFence? = nil;
+        let closure: (MTLComputeCommandEncoder) -> Int = { encoder in
+            encoder.setBuffer(self.buffer, offset: 0, index: 0);
+            encoder.setBytes(&computeContext, length: MemoryLayout<VectorsSetupCx>.stride, index: 1);
+            
+            return self.count
+        }
         
-        if !self.setupRun {
-            guard let fence = self.device.makeFence() else {
+        switch self.state {
+            case .firstRun:
+                guard let fenceA = device.makeFence(),
+                      let fenceB = device.makeFence() else {
+                    return;
+                }
+                
+                self.positionManifest.updatingFence = fenceA;
+                self.angleManifest.waitingFence = fenceA;
+                self.angleManifest.updatingFence = fenceB;
+                self.animateManifest.waitingFence = fenceB;
+                
+                guard self.positionManifest.execute(using: context, bufferSetup: closure) && self.angleManifest.execute(using: context, bufferSetup: closure) else {
+                    return;
+                }
+            case .resized:
+                guard let fence = device.makeFence() else {
+                    return;
+                }
+                
+                self.positionManifest.updatingFence = fence;
+                self.animateManifest.waitingFence = fence;
+                
+                guard self.positionManifest.execute(using: context, bufferSetup: closure) else {
+                    return;
+                }
+            case .noChanges:
+                guard self.animateManifest.execute(using: context, bufferSetup: closure) else {
+                    return
+                }
+        }
+        
+        if self.state == .resized || self.state == .firstRun {
+            guard self.positionManifest.execute(using: context, bufferSetup: closure) else {
                 return;
             }
-            setupFence = fence;
-            
-            guard self.executeCompute(state: self.computeSetupPipeline, context: context, computeContext: &computeContext, waitingFence: nil, updatingFence: setupFence) else {
-                print("Unable to run setup stage.")
-                return
+        }
+        if self.state == .firstRun {
+            guard self.angleManifest.execute(using: context, bufferSetup: closure) else {
+                return;
             }
-            
-            self.setupRun = true;
         }
-        
-        guard let animateFence = self.device.makeFence() else {
+    
+        guard self.animateManifest.execute(using: context, bufferSetup: closure) else {
             return;
         }
-        
-        guard self.executeCompute(state: self.computeAnimatePipeline, context: context, computeContext: &computeContext, waitingFence: setupFence, updatingFence: animateFence) else {
-            return;
-        }
-        
         
         var transform = self.projection * self.zoomMatrix * self.panMatrix;
         var thickness = max(min(self.prop.zoom / 2, 1.5), 0.2);
@@ -297,11 +284,16 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         renderEncoder.setFragmentBytes(&self.prop.colors, length: MemoryLayout<ColorSchema>.stride, index: 0)
         renderEncoder.setRenderPipelineState(self.graphicsPipeline)
         
-        renderEncoder.waitForFence(animateFence, before: .vertex)
+        renderEncoder.waitForFence(self.animateManifest.updatingFence!, before: .vertex)
         
         renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4, instanceCount: count);
         
         renderEncoder.endEncoding();
         context.commit();
+        
+        self.positionManifest.resetFences()
+        self.angleManifest.resetFences()
+        self.animateManifest.waitingFence = nil;
+        self.state = .noChanges
     }
 }

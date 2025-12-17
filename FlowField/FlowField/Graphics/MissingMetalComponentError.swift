@@ -14,6 +14,7 @@ public enum MissingMetalComponentError : Error {
     case defaultLibrary
     case libraryFunction(String) //Its name
     case buffer
+    case fence
     
     /// A string description of what is missing.
     public var description: String {
@@ -32,6 +33,7 @@ public enum MissingMetalComponentError : Error {
             case .defaultLibrary: "Default Library"
             case .libraryFunction(let name): "Library function \"\(name)\""
             case .buffer: "Buffer"
+            case .fence: "Fence"
         };
         
         return result + name;

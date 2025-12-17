@@ -9,7 +9,10 @@
 #include "common.h"
 using namespace metal;
 
-kernel void setupVectors(
+/// Assigns each vector to a specific position in the grid, based on its index location in said grid.
+/// This should be called during first setup & during resizes.
+/// This does not assign angles and magnitudes. For that, see `angleVectors`.
+kernel void positionVectors(
     device FlowVector* instances [[buffer(0)]],
     const device VectorsSetupCx& cx [[buffer(1)]],
     uint instanceId [[thread_position_in_grid]]
@@ -21,21 +24,35 @@ kernel void setupVectors(
     float2 pos = float2(float(i), float(j));
     
     instances[instanceId].tail = pos * cx.step;
-    
-    float2 diff = sin(pos) - instances[instanceId].tail;
+}
 
+/// Assigns angles for the vectors based on their position, and the equation at time = 0.
+/// This should only be called once, during the first render.
+kernel void angleVectors(
+     device FlowVector* instances [[buffer(0)]],
+     const device VectorsSetupCx& cx [[buffer(1)]],
+     uint instanceId [[thread_position_in_grid]]
+) {
+    // Determine the i, j values for the grid based on the step
+    uint i = instanceId % cx.sizex;
+    uint j = instanceId / cx.sizey;
+    
+    float2 pos = float2(float(i), float(j));
+    float2 diff = sin(pos) - instances[instanceId].tail;
+    
     instances[instanceId].angMag = float2(
         sqrt(diff.x * diff.x + diff.y * diff.y),
         atan2(diff.y, diff.x)
-    );
+   );
 }
 
+/// Called once per frame; computes the vectors based on the position (x,y), and time (t).
 kernel void animateVectors(
     device FlowVector* instances [[buffer(0)]],
     const device VectorsSetupCx& cx [[buffer(1)]],
     uint instanceId [[thread_position_in_grid]]
 ) {
-    instances[instanceId].angMag.x += M_PI_F / 16;
+    //instances[instanceId].angMag.x += M_PI_F / 16;
 }
 
 vertex OutputFlowVector transformVectorOutputs(
@@ -59,7 +76,7 @@ vertex OutputFlowVector transformVectorOutputs(
     float2 tip;
     {
         float angle = value.angMag.x;
-        float mag = mix(0, 4, value.angMag.y);
+        float mag = min( value.angMag.y, 4.0 );
         tip = value.tail + float2(cos(angle), sin(angle)) * mag;
     }
     

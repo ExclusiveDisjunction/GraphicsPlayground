@@ -33,12 +33,8 @@ open class RendererBasis : NSObject {
     }
     
     /// Creates a pipleine using `bgra8Unorm` for pixel format, and `depth32Float` for the depth pixel format. It will create the metal functions with the specified names.
-    public static func makeSimplePipeline(_ device: MTLDevice, vertex: String, fragment: String, is2d: Bool = false) throws -> MTLRenderPipelineState {
+    public static func makeSimplePipeline(device: MTLDevice, library: MTLLibrary, vertex: String, fragment: String, is2d: Bool = false) throws -> MTLRenderPipelineState {
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
-        
-        guard let library = device.makeDefaultLibrary() else {
-            throw MissingMetalComponentError.defaultLibrary
-        }
         
         pipelineDescriptor.vertexFunction = try Self.getMetalFunction(library, name: vertex)
         pipelineDescriptor.fragmentFunction = try Self.getMetalFunction(library, name: fragment)

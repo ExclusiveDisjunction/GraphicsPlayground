@@ -17,24 +17,49 @@ typedef struct {
 
 typedef struct {
     vector_float2 tail;
-    vector_float2 angMag; // The first value is the angle, while the second is the magnitude.
-} FlowVector;
+    float angle;
+    float mag;
+} ParametricVector;
+
+typedef struct {
+    vector_float2 tail;
+    vector_float2 tip;
+} TailTipVector;
+
+typedef struct {
+    vector_float2 bottomLeft;
+    vector_float2 bottomRight;
+    vector_float2 topLeft;
+    vector_float2 topRight;
+    vector_float2 t_left;
+    vector_float2 t_right;
+    vector_float2 t_top;
+    float mag;
+} RenderableVector;
 
 typedef struct  {
     vector_float4 pos [[position]];
     float mag;
-} OutputFlowVector;
+} OutputVector;
 
 typedef struct {
-    unsigned x;
-    unsigned y;
-} SizeUint;
+    vector_float2 step;
+    vector_float2 corner;
+    unsigned sizex;
+    unsigned sizey;
+} VectorSetupContext;
 
 typedef struct {
     vector_float2 step;
     unsigned sizex;
     unsigned sizey;
-    vector_float2 corner;
-} VectorsSetupCx;
+    float time;
+    float deltaTime;
+} VectorAnimateContext;
+
+typedef struct {
+    float zoom;
+    simd_float4x4 transform;
+} VectorVertexContext;
 
 #endif /* common_h */

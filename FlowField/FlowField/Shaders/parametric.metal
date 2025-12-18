@@ -32,12 +32,12 @@ kernel void animateVectorsParametric(
     const device VectorAnimateContext& cx [[buffer(1)]],
     uint instanceId [[thread_position_in_grid]]
 ) {
-    instances[instanceId].angle = M_PI_F / 4;
-    instances[instanceId].mag = 4;
+    instances[instanceId].angle = ((float)instanceId + cx.time) * (M_PI_F / 32);
+    instances[instanceId].mag = sin(cx.time) * 4 + 5;
 }
 
 kernel void transformParametric(
-    device ParametricVector* input [[buffer(0)]],
+    const device ParametricVector* input [[buffer(0)]],
     device RenderableVector* output [[buffer(1)]],
     const device float& thickness [[buffer(2)]],
     uint instanceId [[thread_position_in_grid]]
@@ -79,6 +79,18 @@ kernel void transformParametric(
         h^2 = 16*|offset|^2 - 4 * |offset|^2
         h^2 = 12*|offset|^2
         h = 2*sqrt(3)*|offset|
+     */
+    
+    /*
+        Overall, I want the magnitude to be 90% of the entire figures shape.
+     
+        So, len = length(tip - tail) + h
+            len = length(tip - tail) + (2 * sqrt(3) * magnitude(offset))
+            0.9 * cell = sqrt((x - m * cos(angle))^2 + (y - m * sin(angle))^2) + (sqrt(3) * thickness))
+            0.9 * cell - sqrt(3) * thickness = sqrt((x - m * cos(angle))^2 + (y - m * sin(angle))^2)
+            (0.9 * cell - sqrt(3) * thicknes)^2 = (x - m * cos(angle))^2 + (y - m * sin(angle))^2
+            
+            To be continued...
      */
     
     float h = 2.0 * sqrt(3.0) * length(offset);

@@ -134,6 +134,7 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         self.transformManifest.waitingFence = animateFence;
         self.transformManifest.updatingFence = transformFence;
         self.graphicsFence = transformFence;
+        self.clock = ContinuousClock();
         
         self.projection = float4x4(
             rows: [
@@ -188,6 +189,9 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
     private var animateManifest: ComputeManifest;
     private var transformManifest: ComputeManifest;
     private var projection: float4x4;
+    private var timeLast: ContinuousClock.Instant? = nil;
+    private var timeTally: Float = 0.0;
+    private let clock: ContinuousClock;
     
     public var prop: VectorRendererProperties;
     
@@ -213,12 +217,30 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
         self.requiresPositioning = true;
     }
     
+    public static let attosecondsConversion: Float = pow(10.0, -18.0);
+    
     public func draw(in view: MTKView) {
         guard let context = FrameDrawContext(view: view, queue: self.commandQueue) else {
             return;
         }
         
-        if self.requiresPositioning {
+        let currentTimeInstant = self.clock.now;
+        let currentTime: Float;
+        let timeDelta: Float;
+        if let previousTimeInstant = self.timeLast {
+            var (secondsElapsed, attoSecondsElapsed) = (currentTimeInstant - previousTimeInstant).components;
+            timeDelta = Float(secondsElapsed) + (Float(attoSecondsElapsed) * VectorRenderer.attosecondsConversion);
+            
+            currentTime = self.timeTally + timeDelta;
+            self.timeTally += timeDelta;
+        }
+        else {
+            currentTime = 0.0;
+            timeDelta = 0.0;
+            self.timeLast = currentTimeInstant;
+        }
+        
+        if true { //self.requiresPositioning
             guard let fence = device.makeFence() else {
                 return;
             }
@@ -227,7 +249,7 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
             self.animateManifest.waitingFence = fence;
             
             var positionContext = VectorSetupContext(
-                step: self.size,
+                step: self.size / SIMD2<Float>(self.qnty),
                 corner: -self.size / 2,
                 sizex: UInt32(self.qnty.x),
                 sizey: UInt32(self.qnty.y)
@@ -249,8 +271,8 @@ public class VectorRenderer : RendererBasis, MTKViewDelegate, @unchecked Sendabl
             step: self.size / SIMD2<Float>(self.qnty),
             sizex: UInt32(self.qnty.x),
             sizey: UInt32(self.qnty.y),
-            time: 0,
-            deltaTime: 0
+            time: currentTime,
+            deltaTime: timeDelta
         );
         
         

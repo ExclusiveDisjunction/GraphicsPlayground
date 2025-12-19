@@ -6,7 +6,7 @@
 //
 
 #include <metal_stdlib>
-#include "common.h"
+#include "../Headers/VectorRendering.h"
 using namespace metal;
 
 kernel void positionVectorsCartesian(
@@ -42,28 +42,30 @@ kernel void transformCartesian(
    uint instanceId [[thread_position_in_grid]]
 ) {
     CartesianVector value = input[instanceId];
+    
     float vecMag = length(value.tip);
     float mag = min(vecMag * 4, context.magnitude);
-    float2 tip = value.tail + normalize(value.tip) * mag;
+    vector_float2 tip = value.tail + normalize(value.tip) * mag;
     
     // Now we determine the value offset of the thickness.
     float len = length(tip - value.tail);
     float2 direction = (len > 0.0001) ? (tip - value.tail) / len : float2(1, 0);
-    float2 normal = float2(-direction.y, direction.x);
+    float2 normal = vector_float2(-direction.y, direction.x);
     float2 offset = normal * (context.thickness / 2.0);
     
-    RenderableVector out;
-    out.bottomLeft = value.tail - offset;
-    out.bottomRight = value.tail + offset;
-    out.topLeft = tip - offset;
-    out.topRight = tip + offset;
+    RenderableVector result;
+    result.bottomLeft = value.tail - offset;
+    result.bottomRight = value.tail + offset;
+    result.topLeft = tip - offset;
+    result.topRight = tip + offset;
     
-    out.t_left = tip - (2 * offset);
-    out.t_right = tip + (2 * offset);
+    result.t_left = tip - (2 * offset);
+    result.t_right = tip + (2 * offset);
     
     float h = 2.0 * sqrt(3.0) * length(offset);
-    out.t_top = tip + direction * h;
-    out.mag = vecMag;
+    result.t_top = tip + direction * h;
+    result.mag = vecMag;
     
-    output[instanceId] = out;
+    output[instanceId] = result;
+    
 }

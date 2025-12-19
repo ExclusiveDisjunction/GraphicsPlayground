@@ -6,7 +6,7 @@
 //
 
 #include <metal_stdlib>
-#include "common.h"
+#include "../Headers/VectorRendering.h"
 using namespace metal;
 
 /// Assigns each vector to a specific position in the grid, based on its index location in said grid.
@@ -43,59 +43,33 @@ kernel void transformParametric(
     uint instanceId [[thread_position_in_grid]]
 ) {
     ParametricVector value = input[instanceId];
-    float angle = value.angle;
-    float mag = context.magnitude;
-    float2 tip = value.tail + float2(cos(angle), sin(angle)) * mag;
+    
+    float2 foundTip =  value.mag * float2(
+        cos(value.angle),
+        sin(value.angle)
+    );
+    float vecMag = length(foundTip);
+    float mag = min(vecMag * 4, context.magnitude);
+    vector_float2 tip = value.tail + normalize(foundTip) * mag;
     
     // Now we determine the value offset of the thickness.
     float len = length(tip - value.tail);
     float2 direction = (len > 0.0001) ? (tip - value.tail) / len : float2(1, 0);
-    float2 normal = float2(-direction.y, direction.x);
+    float2 normal = vector_float2(-direction.y, direction.x);
     float2 offset = normal * (context.thickness / 2.0);
     
-    RenderableVector out;
-    out.bottomLeft = value.tail - offset;
-    out.bottomRight = value.tail + offset;
-    out.topLeft = tip - offset;
-    out.topRight = tip + offset;
+    RenderableVector result;
+    result.bottomLeft = value.tail - offset;
+    result.bottomRight = value.tail + offset;
+    result.topLeft = tip - offset;
+    result.topRight = tip + offset;
     
-    out.t_left = tip - (2 * offset);
-    out.t_right = tip + (2 * offset);
-    
-    /*
-                            / |
-                           /  |
-                          /   |
-        c= 4*|offset|    /    |  height = h
-                        /     |
-                       /      |
-                      /       |
-                     /        |
-                     ---------
-                      Width = 2 * |offset|
-     
-        c^2 = w^2 + h^2
-        h^2 = c^2 - w^2
-        h^2 = 16*|offset|^2 - 4 * |offset|^2
-        h^2 = 12*|offset|^2
-        h = 2*sqrt(3)*|offset|
-     */
-    
-    /*
-        Overall, I want the magnitude to be 90% of the entire figures shape.
-     
-        So, len = length(tip - tail) + h
-            len = length(tip - tail) + (2 * sqrt(3) * magnitude(offset))
-            0.9 * cell = sqrt((x - m * cos(angle))^2 + (y - m * sin(angle))^2) + (sqrt(3) * thickness))
-            0.9 * cell - sqrt(3) * thickness = sqrt((x - m * cos(angle))^2 + (y - m * sin(angle))^2)
-            (0.9 * cell - sqrt(3) * thicknes)^2 = (x - m * cos(angle))^2 + (y - m * sin(angle))^2
-            
-            To be continued...
-     */
+    result.t_left = tip - (2 * offset);
+    result.t_right = tip + (2 * offset);
     
     float h = 2.0 * sqrt(3.0) * length(offset);
-    out.t_top = tip + direction * h;
-    out.mag = value.mag;
+    result.t_top = tip + direction * h;
+    result.mag = vecMag;
     
-    output[instanceId] = out;
+    output[instanceId] = result;
 }

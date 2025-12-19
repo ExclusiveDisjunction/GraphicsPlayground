@@ -62,8 +62,13 @@ public struct MetalView<T> : NSViewRepresentable where T: MTKViewDelegate {
     }
 }
 
-struct VectorFieldView : View {
-    let render: VectorFieldRenderer;
+public protocol TransformableRenderer : MTKViewDelegate {
+    var prop: VectorRendererProperties { get }
+}
+extension VectorFieldRenderer : TransformableRenderer { }
+
+struct VectorFieldView<T> : View where T: TransformableRenderer {
+    let render: T;
     let device: MTLDevice;
     
     @GestureState private var zoom: Float = 1.0;

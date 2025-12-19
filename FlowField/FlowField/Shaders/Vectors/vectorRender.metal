@@ -6,7 +6,7 @@
 //
 
 #include <metal_stdlib>
-#include "common.h"
+#include "../Headers/VectorRendering.h"
 using namespace metal;
 
 

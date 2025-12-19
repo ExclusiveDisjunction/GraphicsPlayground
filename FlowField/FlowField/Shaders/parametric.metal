@@ -32,26 +32,26 @@ kernel void animateVectorsParametric(
     const device VectorAnimateContext& cx [[buffer(1)]],
     uint instanceId [[thread_position_in_grid]]
 ) {
-    instances[instanceId].angle = ((float)instanceId + cx.time) * (M_PI_F / 32);
-    instances[instanceId].mag = sin(cx.time) * 4 + 5;
+    instances[instanceId].angle = ((float)instanceId + cx.time) * (M_PI_F / 8);
+    instances[instanceId].mag = sin(cx.time) * 4 + 10;
 }
 
 kernel void transformParametric(
     const device ParametricVector* input [[buffer(0)]],
     device RenderableVector* output [[buffer(1)]],
-    const device float& thickness [[buffer(2)]],
+    const device TransformContext& context [[buffer(2)]],
     uint instanceId [[thread_position_in_grid]]
 ) {
     ParametricVector value = input[instanceId];
     float angle = value.angle;
-    float mag = min (value.mag, 7.0 );
+    float mag = context.magnitude;
     float2 tip = value.tail + float2(cos(angle), sin(angle)) * mag;
     
     // Now we determine the value offset of the thickness.
     float len = length(tip - value.tail);
     float2 direction = (len > 0.0001) ? (tip - value.tail) / len : float2(1, 0);
     float2 normal = float2(-direction.y, direction.x);
-    float2 offset = normal * (thickness / 2.0);
+    float2 offset = normal * (context.thickness / 2.0);
     
     RenderableVector out;
     out.bottomLeft = value.tail - offset;
@@ -95,7 +95,7 @@ kernel void transformParametric(
     
     float h = 2.0 * sqrt(3.0) * length(offset);
     out.t_top = tip + direction * h;
-    out.mag = mag;
+    out.mag = value.mag;
     
     output[instanceId] = out;
 }

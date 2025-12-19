@@ -24,7 +24,7 @@ typedef struct {
 typedef struct {
     vector_float2 tail;
     vector_float2 tip;
-} TailTipVector;
+} CartesianVector;
 
 typedef struct {
     vector_float2 bottomLeft;
@@ -43,6 +43,11 @@ typedef struct  {
 } OutputVector;
 
 typedef struct {
+    float thickness;
+    float magnitude;
+} TransformContext;
+
+typedef struct {
     vector_float2 step;
     vector_float2 corner;
     unsigned sizex;
@@ -51,6 +56,7 @@ typedef struct {
 
 typedef struct {
     vector_float2 step;
+    vector_float2 size;
     unsigned sizex;
     unsigned sizey;
     float time;

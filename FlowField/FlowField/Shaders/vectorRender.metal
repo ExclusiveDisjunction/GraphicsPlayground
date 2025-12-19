@@ -39,6 +39,7 @@ vertex OutputVector renderVectorBody(
 
     OutputVector out;
     out.pos = cx.transform * float4(pos, 0.0, 1.0);
+    out.mag = value.mag;
     
     return out;
 }

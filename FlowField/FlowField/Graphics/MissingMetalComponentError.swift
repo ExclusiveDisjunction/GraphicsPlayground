@@ -39,3 +39,7 @@ public enum MissingMetalComponentError : Error {
         return result + name;
     }
 }
+
+public struct BufferResizeError : Error {
+    
+}

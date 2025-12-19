@@ -15,7 +15,7 @@ struct ContentView: View {
         self.device = device
         
         do {
-            self.render = try VectorRenderer(device, qnty: SIMD2(60, 60), size: SIMD2(300, 300))
+            self.render = try CartesianRenderer(device, qnty: SIMD2(60, 60), size: SIMD2(300, 300))
         }
         catch let e {
             fatalError("unable to open due to \(e)")
@@ -23,7 +23,7 @@ struct ContentView: View {
     }
     
     @State private var device: MTLDevice;
-    @State private var render: VectorRenderer;
+    @State private var render: CartesianRenderer;
     @State private var inspector = true;
     @State private var isEditing = false;
     

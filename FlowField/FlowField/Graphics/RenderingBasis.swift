@@ -56,52 +56,6 @@ open class RendererBasis : NSObject {
     }
 }
 
-/// A base class that can be used to assist with building renderers. This one specifically aids with 3d rendering.
-open class RendererBasis3d : RendererBasis {
-    private var _depthTexture: MTLTexture?;
-    
-    /// The attached depth stencil state for 3d rendering
-    public  let depthStencilState: MTLDepthStencilState;
-    /// The depth texture used to aid with 3d rendering
-    public var depthTexture: MTLTexture? { _depthTexture }
-    
-    /// The projection matrix used for transformations.
-    public var projectionMatrix: float4x4;
-    
-    /// Constructs the required elements, and throws an error if something could not be created.
-    public override init(_ device: MTLDevice) throws(MissingMetalComponentError) {
-        let depthStencilDescriptor = MTLDepthStencilDescriptor()
-        depthStencilDescriptor.depthCompareFunction = .less
-        depthStencilDescriptor.isDepthWriteEnabled = true
-        guard let depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor) else {
-            throw .depthStencil
-        }
-        
-        self.depthStencilState = depthStencilState;
-        self.projectionMatrix = Self.createPerspective(aspect: 1)
-        
-        try super.init(device)
-    }
-    
-    /// Updates the projection matrix and the 3d texture.
-    public func updateMTKView(_ view: MTKView, size: CGSize) {
-        let width = size.width == 0 ? 1 : size.width;
-        let height = size.height == 0 ? 1 : size.height;
-        
-        self.projectionMatrix = Self.createPerspective(aspect: Float(width / height))
-        
-        let desc = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .depth32Float,
-            width: Int(width),
-            height: Int(height),
-            mipmapped: false
-        )
-        desc.usage = [.shaderRead, .renderTarget]
-        desc.storageMode = .memoryless
-        self._depthTexture = device.makeTexture(descriptor: desc)
-    }
-}
-
 /// A wrapper to help with setting up and completing a frame draw.
 public struct FrameDrawContext : ~Copyable {
     /// Attempts to extract information out of the `view` and `queue` to start the frame drawing process. This returns `nil` if something is missing.
@@ -133,12 +87,12 @@ public struct FrameDrawContext : ~Copyable {
     }
     
     /// If a texture is provided, it will store it in the `renderPassDescriptor`.
-    public func setDepthTexture(_ texture: MTLTexture?, load: MTLLoadAction = .clear, store: MTLStoreAction = .dontCare, colorDepth: Float = 1.0) {
+    public func setDepthTexture(_ texture: MTLTexture?, load: MTLLoadAction = .clear, store: MTLStoreAction = .dontCare, colorDepth: Double = 1.0) {
         if let texture = texture {
             renderPassDescriptor.depthAttachment.texture = texture
-            renderPassDescriptor.depthAttachment.loadAction = .clear
-            renderPassDescriptor.depthAttachment.storeAction = .dontCare
-            renderPassDescriptor.depthAttachment.clearDepth = 1.0
+            renderPassDescriptor.depthAttachment.loadAction = load
+            renderPassDescriptor.depthAttachment.storeAction = store
+            renderPassDescriptor.depthAttachment.clearDepth = colorDepth
         }
     }
     

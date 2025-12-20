@@ -72,6 +72,15 @@ public struct FrameDrawContext : ~Copyable {
         self.renderPassDescriptor = renderPassDescriptor
     }
     
+    deinit {
+        guard !self.didCommit else {
+            return;
+        }
+        
+        self.commit()
+    }
+    
+    fileprivate var didCommit: Bool = false;
     /// The drawable context
     public let drawable: CAMetalDrawable;
     /// The command buffer
@@ -105,5 +114,6 @@ public struct FrameDrawContext : ~Copyable {
     public consuming func commit() {
         commandBuffer.present(drawable)
         commandBuffer.commit()
+        self.didCommit = true;
     }
 }

@@ -65,10 +65,10 @@ public struct MetalView<T> : NSViewRepresentable where T: MTKViewDelegate {
 public protocol TransformableRenderer : MTKViewDelegate {
     var prop: VectorRendererProperties { get }
 }
-extension VectorFieldRenderer : TransformableRenderer { }
+//extension VectorFieldRenderer : TransformableRenderer { }
 
-struct VectorFieldView<T> : View where T: TransformableRenderer {
-    let render: T;
+struct VectorFieldView : View {
+    let render: GridRenderer;
     let device: MTLDevice;
     
     @GestureState private var zoom: Float = 1.0;
@@ -105,8 +105,8 @@ struct VectorFieldView<T> : View where T: TransformableRenderer {
             }
             .onChange(of: pan) { _, pan in
                 let currentPan = (Float(basePan.width + pan.width), Float(basePan.height + pan.height));
-                render.prop.panX = currentPan.0 / render.prop.zoom;
-                render.prop.panY = -currentPan.1 / render.prop.zoom;
+                render.prop.offsetX = currentPan.0 / render.prop.zoom;
+                render.prop.offsetY = -currentPan.1 / render.prop.zoom;
             }
     }
 }

@@ -11,6 +11,16 @@
 		DDC4AE762EF5BDDC00A6F793 /* GraphViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GraphViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		DD34959F2EF75CBE0077A04C /* Exceptions for "GraphViewer" folder in "GraphViewer" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Graphics/ColorContext.swift,
+			);
+			target = DDC4AE752EF5BDDC00A6F793 /* GraphViewer */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		DD4B48422EC0478900099749 /* FlowField */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -19,6 +29,9 @@
 		};
 		DDC4AE772EF5BDDC00A6F793 /* GraphViewer */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DD34959F2EF75CBE0077A04C /* Exceptions for "GraphViewer" folder in "GraphViewer" target */,
+			);
 			path = GraphViewer;
 			sourceTree = "<group>";
 		};

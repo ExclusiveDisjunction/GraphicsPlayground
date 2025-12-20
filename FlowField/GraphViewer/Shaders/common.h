@@ -10,4 +10,13 @@
 
 #include <simd/simd.h>
 
+typedef struct {
+    float thickness;
+    float spacing;
+    float zoom;
+    vector_float2 offset;
+    vector_float4 background;
+    vector_float4 line;
+} GridProperties;
+
 #endif /* common_h */

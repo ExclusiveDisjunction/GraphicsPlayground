@@ -11,13 +11,13 @@ import simd
 @Observable
 public class VectorRendererProperties {
     public init(panX: Float, panY: Float) {
-        self.colors = ColorSchema(min: SIMD3(0.337255, 0.7568628, 0.9098039), max: SIMD3(0.462745, 0.337255, 0.9098039))
+        //self.colors = ColorSchema(min: SIMD3(0.337255, 0.7568628, 0.9098039), max: SIMD3(0.462745, 0.337255, 0.9098039))
         self.zoom = 1;
         self.panX = panX;
         self.panY = panY;
     }
     
-    public var colors: ColorSchema;
+    //public var colors: ColorSchema;
     public var zoom: Float;
     public var panX: Float;
     public var panY: Float;

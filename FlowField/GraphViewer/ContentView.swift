@@ -15,7 +15,7 @@ struct ContentView: View {
         self.device = device
         
         do {
-            self.render = try CartesianRenderer(device, qnty: SIMD2(60, 60), size: SIMD2(300, 300))
+            self.render = try GridRenderer(device, prop: .init(spacing: 50, thickness: 0.5));
         }
         catch let e {
             fatalError("unable to open due to \(e)")
@@ -23,14 +23,12 @@ struct ContentView: View {
     }
     
     @State private var device: MTLDevice;
-    @State private var render: CartesianRenderer;
-    @State private var inspector = true;
+    @State private var render: GridRenderer;
+    @State private var inspector = false;
     @State private var isEditing = false;
     
     @ViewBuilder
     private var inspectorView: some View {
-        
-        /*
          ScrollView {
              VStack {
                  HStack {
@@ -45,6 +43,7 @@ struct ContentView: View {
                  }
                  
                  Grid {
+                     /*
                      GridRow {
                          HStack {
                              Text("Colors")
@@ -75,6 +74,7 @@ struct ContentView: View {
                                  .frame(width: 40, height: 40)
                          }.gridCellAnchor(.leading)
                      }
+                      */
                      
                      GridRow {
                          HStack {
@@ -94,7 +94,7 @@ struct ContentView: View {
                      }
                      
                      GridRow {
-                         Slider(value: $render.prop.panX, in: -render.size.x...render.size.x) {
+                         Slider(value: $render.prop.offsetX, in: -render.size.x...render.size.x) {
                              Text("X:")
                          } minimumValueLabel: {
                              Text(-render.size.x, format: .number.precision(.fractionLength(0)))
@@ -104,7 +104,7 @@ struct ContentView: View {
                      }
                      
                      GridRow {
-                         Slider(value: $render.prop.panY, in: -render.size.y...render.size.y) {
+                         Slider(value: $render.prop.offsetY, in: -render.size.y...render.size.y) {
                              Text("Y:")
                          } minimumValueLabel: {
                              Text(-render.size.y, format: .number.precision(.fractionLength(0)))
@@ -133,7 +133,6 @@ struct ContentView: View {
                  Spacer()
              }
          }.padding()
-         */
     }
     
     var body: some View {
